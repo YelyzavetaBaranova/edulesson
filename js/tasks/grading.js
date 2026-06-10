@@ -1,7 +1,6 @@
 import { D, getLessonRef } from '../store.js';
 import { INTERACTIVE_TYPES } from '../constants.js';
 import { matchClearSel } from './interactions.js';
-import { syncHomework, markHomeworkDone } from '../homework.js';
 import { updateProgress } from '../progress.js';
 
 export function checkOne(tid, type) {
@@ -78,7 +77,6 @@ export function checkOne(tid, type) {
   }
   const saBtn = document.getElementById(`sa-${tid}`);
   if (saBtn) saBtn.style.display = correct ? 'none' : 'inline-flex';
-  if (correct) markHomeworkDone(tid);
   return correct;
 }
 
@@ -214,7 +212,6 @@ export function resetTask(tid, type) {
 export async function checkAll(courseId, lessonId) {
   const lesson = getLessonRef(courseId, lessonId);
   if (!lesson) return;
-  await syncHomework(lessonId);
   const tasks = lesson.tasks || [];
   let total = 0;
   let correct = 0;
