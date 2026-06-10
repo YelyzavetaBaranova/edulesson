@@ -24,9 +24,40 @@ export async function getProgress(lessonId) {
   return existing.length > 0 ? existing[0] : null;
 }
 
-export async function getUserCourseId() {
-  if (!currentUser) return null;
-  if (currentUser.role === 'admin') return null;
+export async function getUserCourseIds() {
+  if (!currentUser) return [];
+  if (currentUser.role === 'admin') return [];
   const enrollments = await db.getByIndex('enrollments', 'user_id', currentUser.id);
-  return enrollments.length > 0 ? enrollments[0].course_id : null;
+  return enrollments.map(e => e.course_id).filter(Boolean);
+}
+
+/* ─── Activity tracking (time spent on lessons) ─── */
+
+let _activeSessionId = null;
+
+export async function startLessonTimer(lessonId, courseId) {
+  if (!currentUser || currentUser.role === 'admin') return;
+  if (_activeSessionId) await stopLessonTimer();
+  try {
+    const result = await db.add('activity', { user_id: currentUser.id, lesson_id: lessonId, course_id: courseId });
+    _activeSessionId = result.id;
+  } catch { /* ignore */ }
+}
+
+export async function stopLessonTimer() {
+  if (!_activeSessionId) return;
+  try {
+    await fetch(`/api/activity/${_activeSessionId}/stop`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+  } catch { /* ignore */ }
+  _activeSessionId = null;
+}
+
+export async function getStudentActivity(userId, courseId) {
+  const all = await db.getByIndex('activity', 'user_id', userId);
+  return courseId ? all.filter(a => a.course_id === courseId) : all;
+}
+
+export async function getTotalTimePerCourse(userId, courseId) {
+  const activities = await getStudentActivity(userId, courseId);
+  return activities.reduce((sum, a) => sum + (a.duration_seconds || 0), 0);
 }

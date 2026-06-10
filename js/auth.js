@@ -38,6 +38,10 @@ export async function register(email, password, name) {
 export function logout() {
   sessionStorage.removeItem('edu-session');
   currentUser = null;
+  window.__enrolledChecked = false;
+  window.__enrolledCourseId = null;
+  window.__enrolledCourseIds = null;
+  localStorage.removeItem('activeCourseId');
 }
 
 export function restoreSession() {

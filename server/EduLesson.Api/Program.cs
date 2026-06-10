@@ -23,6 +23,9 @@ using (var scope = app.Services.CreateScope())
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN TasksJson TEXT NOT NULL DEFAULT '[]'"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN CourseId INTEGER NOT NULL DEFAULT 0"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN UpdatedAt TEXT NOT NULL DEFAULT '2024-01-01'"); } catch { }
+    // New tables for schedule & activity tracking (EnsureCreated already created them, but safe for existing DB)
+    try { db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS Schedule (Id INTEGER PRIMARY KEY AUTOINCREMENT, UserId INTEGER NOT NULL, CourseId INTEGER NOT NULL, Date TEXT NOT NULL, LessonIdsJson TEXT NOT NULL DEFAULT '[]', Notes TEXT NOT NULL DEFAULT '', CreatedAt TEXT NOT NULL)"); } catch { }
+    try { db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS ActivityLogs (Id INTEGER PRIMARY KEY AUTOINCREMENT, UserId INTEGER NOT NULL, LessonId INTEGER NOT NULL, CourseId INTEGER NOT NULL, StartTime TEXT NOT NULL, EndTime TEXT, DurationSeconds INTEGER NOT NULL DEFAULT 0, SessionDate TEXT NOT NULL)"); } catch { }
     if (!db.Users.Any())
     {
         var pw = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("admin123"))).ToLower();

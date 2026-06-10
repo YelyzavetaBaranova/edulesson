@@ -135,6 +135,164 @@ export async function returnHomework(hwId) {
   await db.put('homework', { id: hwId, status: 'returned' });
 }
 
+/* ─── Homework creation wizard ─── */
+
+export async function showHomeworkWizard(preselectedCourseId, preselectedLessonId) {
+  const users = await db.getAll('users');
+  const students = users.filter(u => u.role !== 'admin');
+  const courses = D.courses;
+  let allLessons = await db.getAll('lessons');
+
+  const modal = document.getElementById('MB');
+  const mo = document.getElementById('MO');
+  if (!modal || !mo) return;
+
+  modal.innerHTML = `
+    <div class="mb-scroll" style="padding:24px">
+      <div class="m-title" style="font-size:18px;margin-bottom:16px">📝 Створення домашнього завдання</div>
+
+      <div class="fg">
+        <label>👤 Учень</label>
+        <select id="hwWizStudent" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;font-family:var(--display);outline:none">
+          <option value="">— Оберіть учня —</option>
+          ${students.map(s => `<option value="${s.id}">${esc(s.name)} (${esc(s.email)})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="fg">
+        <label>📚 Рівень / Курс</label>
+        <select id="hwWizCourse" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;font-family:var(--display);outline:none">
+          <option value="">— Оберіть курс —</option>
+          ${courses.map(c => `<option value="${c.id}" ${preselectedCourseId == c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="fg">
+        <label>📖 Урок</label>
+        <select id="hwWizLesson" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;font-family:var(--display);outline:none">
+          <option value="">— Оберіть урок —</option>
+        </select>
+      </div>
+
+      <div class="fg" id="hwWizTasksWrap" style="display:none">
+        <label>✅ Завдання з уроку (оберіть ті, що не встигли)</label>
+        <div id="hwWizTasks" style="max-height:200px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px"></div>
+        <button class="btn bg bsm" id="hwWizAddTask" style="margin-top:8px;width:100%;font-size:13px">＋ Додати нове завдання</button>
+      </div>
+
+      <div id="hwWizNewTaskWrap" style="display:none;margin-top:8px">
+        <input id="hwWizNewTaskInput" placeholder="Текст нового завдання..." style="width:100%;padding:9px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--display);outline:none;margin-bottom:6px">
+      </div>
+    </div>
+    <div class="m-footer">
+      <button class="btn bg" id="hwWizCancel">Скасувати</button>
+      <button class="btn bp" id="hwWizCreate" disabled>Створити ДЗ</button>
+    </div>`;
+
+  mo.classList.add('show');
+
+  /* populate lessons when course changes */
+  const courseSel = document.getElementById('hwWizCourse');
+  const lessonSel = document.getElementById('hwWizLesson');
+  const tasksWrap = document.getElementById('hwWizTasksWrap');
+  const tasksDiv = document.getElementById('hwWizTasks');
+  const createBtn = document.getElementById('hwWizCreate');
+  const cancelBtn = document.getElementById('hwWizCancel');
+  const addTaskBtn = document.getElementById('hwWizAddTask');
+  const newTaskWrap = document.getElementById('hwWizNewTaskWrap');
+  const newTaskInput = document.getElementById('hwWizNewTaskInput');
+
+  function updateLessons() {
+    const cid = parseInt(courseSel.value, 10);
+    lessonSel.innerHTML = '<option value="">— Оберіть урок —</option>';
+    tasksWrap.style.display = 'none';
+    createBtn.disabled = true;
+    if (!cid) return;
+    const course = courses.find(c => c.id === cid);
+    if (!course) return;
+    course.lessons.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id;
+      opt.textContent = l.name;
+      if (preselectedLessonId == l.id) opt.selected = true;
+      lessonSel.appendChild(opt);
+    });
+    if (preselectedLessonId) updateTasks();
+  }
+
+  function updateTasks() {
+    const lid = parseInt(lessonSel.value, 10);
+    tasksDiv.innerHTML = '';
+    if (!lid) { tasksWrap.style.display = 'none'; createBtn.disabled = true; return; }
+    const lesson = getLessonRef(parseInt(courseSel.value, 10), lid);
+    if (!lesson) { tasksWrap.style.display = 'none'; createBtn.disabled = true; return; }
+    const tasks = lesson.tasks || [];
+    tasksWrap.style.display = 'block';
+    if (!tasks.length) {
+      tasksDiv.innerHTML = '<div style="color:var(--text3);font-size:12px;font-family:var(--mono);padding:8px">Немає завдань в уроці</div>';
+      createBtn.disabled = false;
+      return;
+    }
+    tasksDiv.innerHTML = tasks.map((t, i) => `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="hw-task-cb" data-task-id="${t.id}" checked style="width:16px;height:16px;accent-color:var(--accent)">
+        <span>${i + 1}. ${esc(t.instruction || t.type || '')}</span>
+      </label>`).join('');
+    createBtn.disabled = false;
+    updateCreateButton();
+  }
+
+  function updateCreateButton() {
+    const studentOk = document.getElementById('hwWizStudent')?.value;
+    const courseOk = courseSel?.value;
+    const lessonOk = lessonSel?.value;
+    createBtn.disabled = !(studentOk && courseOk && lessonOk);
+  }
+
+  document.getElementById('hwWizStudent').addEventListener('change', updateCreateButton);
+  courseSel.addEventListener('change', () => { updateLessons(); updateCreateButton(); });
+  lessonSel.addEventListener('change', () => { updateTasks(); updateCreateButton(); });
+
+  addTaskBtn.addEventListener('click', () => {
+    newTaskWrap.style.display = newTaskWrap.style.display === 'none' ? 'block' : 'none';
+    if (newTaskWrap.style.display === 'block') newTaskInput.focus();
+  });
+
+  cancelBtn.addEventListener('click', () => mo.classList.remove('show'));
+
+  createBtn.addEventListener('click', async () => {
+    const userId = parseInt(document.getElementById('hwWizStudent').value, 10);
+    const courseId = parseInt(courseSel.value, 10);
+    const lessonId = parseInt(lessonSel.value, 10);
+    if (!userId || !courseId || !lessonId) return;
+
+    const selectedTasks = [...tasksDiv.querySelectorAll('.hw-task-cb:checked')].map(cb => {
+      const taskId = cb.dataset.taskId;
+      const lesson = getLessonRef(courseId, lessonId);
+      const task = lesson?.tasks?.find(t => t.id === taskId);
+      return task || null;
+    }).filter(Boolean);
+
+    const newTaskText = newTaskInput.value.trim();
+    if (newTaskText) {
+      selectedTasks.push({ id: uid(), title: newTaskText, instruction: newTaskText, type: 'text' });
+    }
+
+    const hwId = await createHomework(userId, lessonId, courseId);
+    if (selectedTasks.length) {
+      const hw = await db.get('homework', hwId);
+      if (hw) {
+        hw.tasks = [...(hw.tasks || []), ...selectedTasks];
+        await db.put('homework', hw);
+      }
+    }
+    mo.classList.remove('show');
+    alert('Домашнє завдання створено');
+  });
+
+  if (preselectedCourseId) updateLessons();
+}
+
 /* ─── progress helpers ─── */
 
 export async function getLastDoneLesson(userId, courseId) {

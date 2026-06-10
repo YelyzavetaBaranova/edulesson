@@ -47,7 +47,7 @@ async function api(url, options = {}) {
 }
 
 function storeUrl(store) {
-  const m = { users: '/users', courses: '/courses', lessons: '/lessons', enrollments: '/enrollments', progress: '/progress', homework: '/homework' };
+  const m = { users: '/users', courses: '/courses', lessons: '/lessons', enrollments: '/enrollments', progress: '/progress', homework: '/homework', schedule: '/schedule', activity: '/activity' };
   if (!m[store]) throw new Error('Unknown store: ' + store);
   return m[store];
 }

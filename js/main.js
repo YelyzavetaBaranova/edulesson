@@ -17,6 +17,8 @@ import {
   showScheduleTab,
   showMaterialsTab,
   showProfile,
+  setActiveCourse,
+  showStudentSchedule,
 } from './navigation.js';
 import {
   openCF,
@@ -52,9 +54,9 @@ import {
   closeChoosePops,
 } from './tasks/interactions.js';
 import { goSlide } from './tasks/media.js';
-import { renderTeacherHomeworkList, renderStudentHomeworkList, markHomeworkDone, addHomeworkTask, returnHomework, createHomework } from './homework.js';
+import { renderTeacherHomeworkList, renderStudentHomeworkList, markHomeworkDone, addHomeworkTask, returnHomework, createHomework, showHomeworkWizard } from './homework.js';
 
-import { updateProgress } from './progress.js';
+import { updateProgress, stopLessonTimer } from './progress.js';
 
 function showAuthScreen() {
   const sidebar = document.getElementById('sidebar');
@@ -290,6 +292,33 @@ async function handleAction(e) {
     case 'show-homework':
       showHomeworkPanel();
       break;
+    case 'switch-course':
+      setActiveCourse(parseInt(el.dataset.cid, 10));
+      showHome();
+      break;
+    case 'profile-save-course':
+      (async () => {
+        const userId = parseInt(el.dataset.userId, 10);
+        const sel = document.querySelector('.profile-course-select');
+        if (!sel) return;
+        const courseId = sel.value ? Number(sel.value) : null;
+        const enrollments = await db.getAll('enrollments');
+        const existing = enrollments.filter(e => e.user_id === userId);
+        for (const e of existing) {
+          await db.del('enrollments', e.id);
+        }
+        if (courseId) {
+          await db.add('enrollments', { user_id: userId, course_id: courseId, created_at: new Date().toISOString() });
+        }
+        showProfile(userId, courseId);
+      })();
+      break;
+    case 'profile-switch-course':
+      showProfile(parseInt(el.dataset.userId, 10), parseInt(el.dataset.courseId, 10));
+      break;
+    case 'show-student-schedule':
+      showStudentSchedule();
+      break;
     case 'show-vocab-page':
       showVocabPage();
       break;
@@ -329,6 +358,7 @@ async function handleAction(e) {
       break;
     case 'mark-done':
       await updateProgress(lid, 'done');
+      stopLessonTimer();
       if (currentUser && !isAdmin()) {
         const course = getCourseRef(fid);
         if (course) await createHomework(currentUser.id, parseInt(lid, 10), parseInt(fid, 10));
@@ -337,14 +367,13 @@ async function handleAction(e) {
       showHome();
       break;
     case 'create-hw-from-lesson':
+      showHomeworkWizard(parseInt(el.dataset.fid, 10), parseInt(el.dataset.lid, 10));
+      break;
+    case 'sch-delete':
       (async () => {
-        const email = prompt('Email учня:');
-        if (!email) return;
-        const users = await db.getAll('users');
-        const student = users.find(u => u.email === email && u.role === 'student');
-        if (!student) { alert('Учня з таким email не знайдено'); return; }
-        await createHomework(student.id, parseInt(el.dataset.lid, 10), parseInt(el.dataset.fid, 10));
-        alert('Домашнє завдання створено');
+        await db.del('schedule', parseInt(el.dataset.schId, 10));
+        const { initScheduleEditor } = await import('./schedule.js');
+        initScheduleEditor();
       })();
       break;
     case 'logout':

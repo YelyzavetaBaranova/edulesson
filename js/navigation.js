@@ -9,7 +9,7 @@ import { buildVocabPanelHTML } from './vocab.js';
 import { buildTranslatePanelHTML } from './translator.js';
 import { buildTeacherHomeworkPanelHTML, buildStudentHomeworkPanelHTML, renderTeacherHomeworkList, renderStudentHomeworkList, createHomework } from './homework.js';
 import { currentUser, isAdmin } from './auth.js';
-import { updateProgress, getUserCourseId } from './progress.js';
+import { updateProgress, getUserCourseIds, startLessonTimer, stopLessonTimer } from './progress.js';
 
 let adminTab = 'materials';
 let studentVisibleLessonIds = null;
@@ -32,13 +32,29 @@ function getFilteredLessons(courseId) {
 }
 
 async function ensureEnrolled() {
-  if (!window.__enrolledChecked) {
+  if (isAdmin()) return;
+  const cids = await getUserCourseIds();
+  window.__enrolledCourseIds = cids;
+  if (!cids.length) {
+    window.__enrolledCourseId = null;
     window.__enrolledChecked = true;
-    if (!isAdmin()) {
-      window.__enrolledCourseId = await getUserCourseId();
-      await refreshVisibleLessons();
-    }
+    return;
   }
+  const saved = localStorage.getItem('activeCourseId');
+  if (saved && cids.includes(Number(saved))) {
+    window.__enrolledCourseId = Number(saved);
+  } else {
+    window.__enrolledCourseId = cids[0];
+    localStorage.setItem('activeCourseId', cids[0]);
+  }
+  window.__enrolledChecked = true;
+  await refreshVisibleLessons();
+}
+
+function setActiveCourse(courseId) {
+  if (!window.__enrolledCourseIds || !window.__enrolledCourseIds.includes(Number(courseId))) return;
+  window.__enrolledCourseId = Number(courseId);
+  localStorage.setItem('activeCourseId', courseId);
 }
 
 async function refreshVisibleLessons(courseId) {
@@ -71,7 +87,8 @@ function renderAdminTabs() {
   el.innerHTML = `
     <button class="sb-tab ${adminTab === 'students' ? 'active' : ''}" data-action="admin-tab" data-tab="students">👥 Учні</button>
     <button class="sb-tab ${adminTab === 'schedule' ? 'active' : ''}" data-action="admin-tab" data-tab="schedule">📅 Розклад</button>
-    <button class="sb-tab ${adminTab === 'materials' ? 'active' : ''}" data-action="admin-tab" data-tab="materials">📦 Матеріали</button>`;
+    <button class="sb-tab ${adminTab === 'materials' ? 'active' : ''}" data-action="admin-tab" data-tab="materials">📦 Матеріали</button>
+    <button class="sb-tab ${adminTab === 'homework' ? 'active' : ''}" data-action="show-homework">📝 ДЗ</button>`;
 }
 
 function renderSBHWSection() {
@@ -106,6 +123,7 @@ function renderSBActions() {
     el.innerHTML = '';
   } else {
     el.innerHTML = `<button class="btn bg bsm" data-action="show-homework" style="flex:1;font-size:13px">📝 Домашнє завдання</button>
+      <button class="btn bg bico" data-action="show-student-schedule" title="Розклад">📅</button>
       <button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
       <button class="btn bg bico" data-action="show-vocab-page" title="Словник">📖</button>`;
   }
@@ -194,6 +212,7 @@ export function setTopbar(title, bread, actions) {
 }
 
 export async function showHome() {
+  stopLessonTimer();
   state.setCFid(null);
   state.setCLid(null);
   await ensureEnrolled();
@@ -203,17 +222,38 @@ export async function showHome() {
   const isAdm = isAdmin();
   setTopbar(`Вітаю, ${userName}!`, '', buildHomeActions());
   if (isAdm) {
+    const homeCourses = D.courses;
     document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:960px;width:100%">
-      <div style="margin-bottom:24px">
-        <div style="font-size:24px;font-weight:800;margin-bottom:6px">🏠 Головна</div>
-        <div style="font-size:13px;color:var(--text3);font-family:var(--mono)">Оберіть розділ у бічній панелі</div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:26px;font-weight:800;margin-bottom:6px">🏠 Головна</div>
+        <div style="font-size:14px;color:var(--text3);font-family:var(--mono)">Оберіть розділ у бічній панелі</div>
       </div>
+      ${homeCourses.length ? `
+      <div class="sec-title" style="margin-bottom:12px;font-size:12px">📂 Матеріали</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+        ${homeCourses.map(c => `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .12s" data-action="toggle-folder" data-fid="${c.id}">
+          <div style="font-size:48px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3))">📁</div>
+          <div style="font-size:14px;font-weight:700;text-align:center">${esc(c.name)}</div>
+          <div style="font-size:12px;color:var(--text3);font-family:var(--mono)">${c.lessons.length} уроків</div>
+        </div>`).join('')}
+      </div>` : '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">Курсів ще немає</div></div>'}
     </div>`;
     return;
   }
+  const cids = window.__enrolledCourseIds || [];
   const tc = courses.length;
   const tl = courses.reduce((s, c) => s + c.lessons.length, 0);
   const tt = courses.reduce((s, c) => s + c.lessons.reduce((a, l) => a + (l.tasks || []).length, 0), 0);
+  const coursePicker = cids.length > 1 ? `
+    <div class="course-picker" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${cids.map(cid => {
+        const c = getCourseRef(cid);
+        if (!c) return '';
+        const active = cid === window.__enrolledCourseId ? 'background:var(--accent);color:#000' : 'background:var(--surface2);border:1px solid var(--border);color:var(--text2)';
+        return `<button class="course-pill" style="padding:6px 16px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--display);transition:all .12s;${active}" data-action="switch-course" data-cid="${c.id}">${esc(c.name)}</button>`;
+      }).join('')}
+    </div>` : '';
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
     <div class="home-hero">
       <div class="hero-badge">Мої курси</div>
@@ -225,6 +265,7 @@ export async function showHome() {
         <div class="stat-card"><div class="stat-num">${tt}</div><div class="stat-label">Завдань</div></div>
       </div>
     </div>
+    ${coursePicker}
     <div class="sec-title">📂 Всі курси</div>
     ${
       courses.length
@@ -306,6 +347,7 @@ export async function openLesson(courseId, lessonId) {
   const lesson = getLessonRef(courseId, lessonId);
   if (!course || !lesson) return;
   await updateProgress(lessonId, 'in_progress');
+  startLessonTimer(lessonId, courseId);
   const isAdm = isAdmin();
   setTopbar(
     lesson.name,
@@ -457,7 +499,7 @@ export function showStudentsTab() {
   import('./admin.js').then(m => m.renderAdminPanel());
 }
 
-export function showScheduleTab() {
+export async function showScheduleTab() {
   if (!isAdmin()) return showHome();
   adminTab = 'schedule';
   state.setCFid(null);
@@ -465,9 +507,11 @@ export function showScheduleTab() {
   renderSB();
   setTopbar('📅 Розклад', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
-  document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
-    <div style="font-size:13px;color:var(--text3);font-family:var(--mono);padding:20px 0">Розклад — скоро</div>
+  const { buildScheduleHTML, initScheduleEditor } = await import('./schedule.js');
+  document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:960px;width:100%">
+    ${buildScheduleHTML()}
   </div>`;
+  await initScheduleEditor();
 }
 
 export function showMaterialsTab() {
@@ -518,8 +562,10 @@ export async function showVocabPage() {
   await renderVocabPage();
 }
 
-export async function showProfile(userId) {
+export async function showProfile(userId, courseId) {
   if (!isAdmin()) return showHome();
+  if (!courseId) window.__profileCourseId = null;
+  else window.__profileCourseId = courseId;
   const { buildProfileHTML, renderProfile } = await import('./profile.js');
   state.setCFid(null);
   state.setCLid(null);
@@ -527,7 +573,43 @@ export async function showProfile(userId) {
   setTopbar('Профіль учня', '', `<button class="btn bg bsm" data-action="show-students">👥</button>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
-    ${await buildProfileHTML(userId)}
+    ${await buildProfileHTML(userId, window.__profileCourseId)}
   </div>`;
   await renderProfile(userId);
+}
+
+export async function showStudentSchedule() {
+  if (isAdmin()) return;
+  stopLessonTimer();
+  state.setCFid(null);
+  state.setCLid(null);
+  renderSB();
+  setTopbar('📅 Розклад', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
+    <button class="btn bd bsm" data-action="logout">🚪</button>`);
+  const userId = currentUser?.id;
+  if (!userId) return;
+  const schedules = await db.getByIndex('schedule', 'user_id', userId);
+  const allLessons = await db.getAll('lessons');
+  const allCourses = await db.getAll('courses');
+  const now = new Date().toISOString().slice(0, 10);
+  const grouped = schedules.filter(s => s.date >= now).sort((a, b) => a.date.localeCompare(b.date));
+  const html = grouped.map(s => {
+    const course = allCourses.find(c => c.id === s.course_id);
+    let lessonNames = [];
+    try { lessonNames = JSON.parse(s.lesson_ids_json || '[]').map(id => { const l = allLessons.find(x => x.id === id); return l ? l.name : ''; }).filter(Boolean); } catch {}
+    return `<div style="padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-size:14px;font-weight:600">${s.date}</div>
+          <div style="font-size:12px;color:var(--text3)">${course ? esc(course.name) : '—'}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px">${lessonNames.join(' · ') || '—'}</div>
+        </div>
+        <div style="font-size:24px">📚</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:640px;width:100%">
+    <div class="sec-title" style="margin-bottom:16px">📅 Мій розклад</div>
+    ${html || '<div style="color:var(--text3);font-size:13px;font-family:var(--mono);padding:20px 0">Немає запланованих занять</div>'}
+  </div>`;
 }

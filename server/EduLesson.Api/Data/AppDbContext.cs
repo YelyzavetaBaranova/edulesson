@@ -12,6 +12,8 @@ public class AppDbContext : DbContext
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Progress> Progress => Set<Progress>();
     public DbSet<Homework> Homework => Set<Homework>();
+    public DbSet<Schedule> Schedule => Set<Schedule>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
