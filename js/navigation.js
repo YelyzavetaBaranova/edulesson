@@ -319,7 +319,7 @@ export async function renderLessonLayout(lesson, courseId, isAdm) {
           <div class="sections-score" id="sectionsScoreDisplay">0/0 correct</div>
           <button class="btn bgr" data-action="check-all" data-fid="${courseId}" data-lid="${lesson.id}">✓ Check All</button>
           <button class="btn bg" data-action="reset-all" data-fid="${courseId}" data-lid="${lesson.id}">↺ Reset</button>
-          ${isAdm ? '' : lessonDone ? '<div style="font-size:11px;color:var(--green);font-family:var(--mono);padding:6px 0">✓ Урок пройдено</div>' : `<button class="btn bp" data-action="mark-done" data-fid="${courseId}" data-lid="${lesson.id}">✓ Lesson done</button>`}
+          ${isAdm ? `<button class="btn bp bsm" data-action="create-hw-from-lesson" data-fid="${courseId}" data-lid="${lesson.id}">📝 ДЗ</button>` : lessonDone ? '<div style="font-size:11px;color:var(--green);font-family:var(--mono);padding:6px 0">✓ Урок пройдено</div>' : `<button class="btn bp" data-action="mark-done" data-fid="${courseId}" data-lid="${lesson.id}">✓ Lesson done</button>`}
         </div>
       </div>
     </div>`;

@@ -51,7 +51,7 @@ function buildHomeworkRow(h, user, course, lesson) {
   return `<div style="margin-bottom:8px;padding:12px 14px;background:var(--surface2);border:1px solid ${isReturned ? 'var(--amber)' : 'var(--border)'};border-radius:10px;border-left:3px solid ${isReturned ? 'var(--amber)' : h.status === 'todo' ? 'var(--accent)' : 'var(--border2)'}">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-weight:600;font-size:13px">${esc(user?.name || '—')}</span>
-      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${esc(course?.name || '—')} · ${esc(lesson?.name || '—')}</span>
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${esc(course?.name || '—')} · <span style="cursor:pointer;color:var(--accent);text-decoration:underline" data-action="open-lesson" data-fid="${h.course_id}" data-lid="${h.lesson_id}">${esc(lesson?.name || '—')}</span></span>
       <span style="font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:${isReturned ? 'var(--amber)' : 'var(--accent2)'};color:#000">${h.status === 'returned' ? '🔙 Повернено' : h.status}</span>
     </div>
     ${tasksHtml}

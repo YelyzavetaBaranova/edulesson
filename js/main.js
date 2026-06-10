@@ -336,6 +336,17 @@ async function handleAction(e) {
       }
       showHome();
       break;
+    case 'create-hw-from-lesson':
+      (async () => {
+        const email = prompt('Email учня:');
+        if (!email) return;
+        const users = await db.getAll('users');
+        const student = users.find(u => u.email === email && u.role === 'student');
+        if (!student) { alert('Учня з таким email не знайдено'); return; }
+        await createHomework(student.id, parseInt(el.dataset.lid, 10), parseInt(el.dataset.fid, 10));
+        alert('Домашнє завдання створено');
+      })();
+      break;
     case 'logout':
       logout();
       showAuthScreen();
