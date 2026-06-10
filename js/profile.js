@@ -21,6 +21,7 @@ export async function buildProfileHTML(userId) {
 
   const allHomework = await db.getAll('homework');
   const userHomework = allHomework.filter(h => h.user_id === uid);
+  const allLessons = await db.getAll('lessons');
 
   const totalLessons = course ? course.lessons.length : 0;
   const doneLessons = userProgress.filter(p => p.status === 'done').length;
@@ -61,24 +62,29 @@ export async function buildProfileHTML(userId) {
         <div class="sec-title" style="margin-bottom:10px">⏺ Останній пройдений урок</div>
         <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
           <span style="font-size:13px;flex:1">${esc(lastLessonName)}</span>
-          <button class="btn bgr bsm" data-action="go-to-student-lesson" data-fid="${enrollment?.course_id || ''}" data-lesson-id="${lastLesson.lesson_id}" style="padding:6px 14px">➡ До класу</button>
+          <button class="btn bgr bsm" data-action="go-to-student-lesson" data-lesson-id="${lastLesson.lesson_id}" data-fid="${enrollment?.course_id || ''}" style="padding:6px 14px">➡ До класу</button>
         </div>
       </div>` : ''}
 
       <div class="sec-title" style="margin-bottom:10px">📝 Домашні завдання</div>
-      ${buildHomeworkTable(userHomework)}
+      ${buildHomeworkTable(userHomework, allLessons)}
     </div>`;
 }
 
-function buildHomeworkTable(homework) {
-  const done = homework.filter(h => h.status === 'done');
-  if (!done.length) return '<div style="color:var(--text3);font-size:12px;font-family:var(--mono);padding:8px 0">Немає виконаних завдань</div>';
+function buildHomeworkTable(homework, allLessons) {
+  if (!homework.length) return '<div style="color:var(--text3);font-size:12px;font-family:var(--mono);padding:8px 0">Немає домашніх завдань</div>';
   return `<div style="display:flex;flex-direction:column;gap:4px">
-    ${done.map(h => `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
-      <span style="font-size:11px;color:var(--green)">✓</span>
-      <span style="font-size:12px;flex:1">${esc(h.title)}</span>
-      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">ID: ${h.lesson_id}</span>
-    </div>`).join('')}
+    ${homework.map(h => {
+      const lesson = allLessons.find(l => l.id === h.lesson_id);
+      const tasks = h.tasks || [];
+      const statusColor = h.status === 'done' ? 'var(--green)' : h.status === 'returned' ? 'var(--amber)' : 'var(--text3)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+        <span style="font-size:11px;color:${statusColor}">${h.status === 'done' ? '✓' : h.status === 'returned' ? '↺' : '◷'}</span>
+        <span style="font-size:12px;flex:1">${esc(lesson?.name || '—')}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${tasks.length} завдань</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${h.status}</span>
+      </div>`;
+    }).join('')}
   </div>`;
 }
 

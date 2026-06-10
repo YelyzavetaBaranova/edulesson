@@ -52,7 +52,8 @@ import {
   closeChoosePops,
 } from './tasks/interactions.js';
 import { goSlide } from './tasks/media.js';
-import { renderHomeworkList, markHomeworkDoneById, syncHomework } from './homework.js';
+import { renderTeacherHomeworkList, renderStudentHomeworkList, markHomeworkDone, addHomeworkTask, returnHomework, createHomework } from './homework.js';
+
 import { updateProgress } from './progress.js';
 
 function showAuthScreen() {
@@ -303,13 +304,37 @@ async function handleAction(e) {
     case 'go-to-student-lesson':
       await openLesson(fid || el.dataset.courseId, el.dataset.lessonId);
       break;
-    case 'hw-done':
-      await markHomeworkDoneById(parseInt(el.dataset.hwId, 10));
-      renderHomeworkList();
+    case 'hw-mark-done':
+      await markHomeworkDone(parseInt(el.dataset.hwId, 10));
+      if (isAdmin()) await renderTeacherHomeworkList();
+      else await renderStudentHomeworkList();
+      break;
+    case 'hw-add-task':
+      addTaskToHomework(parseInt(el.dataset.hwId));
+      break;
+    case 'hw-add-task-typed':
+      (async () => {
+        const inp = document.querySelector(`.hw-task-input[data-hw-id="${el.dataset.hwId}"]`);
+        if (!inp || !inp.value.trim()) return;
+        await addHomeworkTask(parseInt(el.dataset.hwId), { title: inp.value.trim(), instruction: inp.value.trim(), type: 'text' });
+        inp.value = '';
+        await renderTeacherHomeworkList();
+      })();
+      break;
+    case 'hw-return':
+      (async () => {
+        await returnHomework(parseInt(el.dataset.hwId));
+        await renderTeacherHomeworkList();
+      })();
       break;
     case 'mark-done':
-      await syncHomework(lid);
       await updateProgress(lid, 'done');
+      if (currentUser && !isAdmin()) {
+        const course = getCourseRef(fid);
+        if (course) await createHomework(currentUser.id, parseInt(lid, 10), parseInt(fid, 10));
+        window.__enrolledChecked = false;
+      }
+      showHome();
       break;
     case 'logout':
       logout();
@@ -359,6 +384,15 @@ function handleVocabEnter(e) {
   } else if (e.target.id === 'authPass' && !currentUser) {
     document.getElementById('authLoginBtn')?.click();
   }
+}
+
+function addTaskToHomework(hwId) {
+  const title = prompt('Назва завдання:');
+  if (!title || !title.trim()) return;
+  const instruction = prompt('Інструкція (або залиште порожнім):', title);
+  addHomeworkTask(hwId, { title: title.trim(), instruction: (instruction || title).trim(), type: 'text' }).then(() => {
+    renderTeacherHomeworkList();
+  });
 }
 
 async function boot() {

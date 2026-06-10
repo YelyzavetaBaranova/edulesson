@@ -1,16 +1,18 @@
 import { esc } from './utils.js';
 import { D, getCourseRef, getLessonRef, save, saveVocab, loadVocab } from './store.js';
 import * as state from './state.js';
+import * as db from './db/index.js';
 import { renderTasksHTML, renderSectionsListHTML } from './tasks/render.js';
 import { initDrag, initFillInBoxDrag } from './tasks/interactions.js';
 import { initTaskReorder } from './tasks/reorder.js';
 import { buildVocabPanelHTML } from './vocab.js';
 import { buildTranslatePanelHTML } from './translator.js';
-import { buildHomeworkPanelHTML, renderHomeworkList } from './homework.js';
+import { buildTeacherHomeworkPanelHTML, buildStudentHomeworkPanelHTML, renderTeacherHomeworkList, renderStudentHomeworkList, createHomework } from './homework.js';
 import { currentUser, isAdmin } from './auth.js';
 import { updateProgress, getUserCourseId } from './progress.js';
 
 let adminTab = 'materials';
+let studentVisibleLessonIds = null;
 
 function getFilteredCourses() {
   if (isAdmin()) return D.courses;
@@ -19,13 +21,40 @@ function getFilteredCourses() {
   return [];
 }
 
+function getFilteredLessons(courseId) {
+  const course = getCourseRef(courseId);
+  if (!course) return [];
+  if (isAdmin()) return course.lessons;
+  if (studentVisibleLessonIds) {
+    return course.lessons.filter(l => studentVisibleLessonIds.includes(l.id));
+  }
+  return [];
+}
+
 async function ensureEnrolled() {
   if (!window.__enrolledChecked) {
     window.__enrolledChecked = true;
     if (!isAdmin()) {
       window.__enrolledCourseId = await getUserCourseId();
+      await refreshVisibleLessons();
     }
   }
+}
+
+async function refreshVisibleLessons(courseId) {
+  studentVisibleLessonIds = null;
+  const cid = courseId || window.__enrolledCourseId;
+  if (!cid) return;
+  const course = getCourseRef(cid);
+  if (!course) return;
+  const allProgress = await db.getByIndex('progress', 'user_id', currentUser.id);
+  const ids = [];
+  for (const lesson of course.lessons) {
+    ids.push(lesson.id);
+    const p = allProgress.find(pr => pr.lesson_id === lesson.id);
+    if (!p || p.status !== 'done') break;
+  }
+  studentVisibleLessonIds = ids;
 }
 
 export function toggleSB() {
@@ -83,6 +112,7 @@ export function renderSB() {
   el.innerHTML = courses
     .map((c) => {
       const isOpen = state.cFid === c.id;
+      const lessons = isAdmin() ? c.lessons : getFilteredLessons(c.id);
       return `<div class="folder-item ${isOpen ? 'open' : ''}">
       <div class="folder-hdr ${isOpen ? 'active' : ''}" data-action="toggle-folder" data-fid="${c.id}">
         <span style="font-size:13px">📁</span>
@@ -91,7 +121,7 @@ export function renderSB() {
         <span class="f-chev">▶</span>
       </div>
       <div class="f-lessons">
-        ${c.lessons
+        ${lessons
           .map(
             (l) =>
               `<div class="l-item ${state.cLid === l.id ? 'active' : ''}" data-action="open-lesson" data-fid="${c.id}" data-lid="${l.id}">
@@ -193,6 +223,7 @@ function buildHomeActions() {
 export function showCourseView(course) {
   if (!course) return showHome();
   const isAdm = isAdmin();
+  const lessons = isAdm ? course.lessons : getFilteredLessons(course.id);
   setTopbar(
     course.name,
     'Курс',
@@ -204,12 +235,12 @@ export function showCourseView(course) {
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
     <div style="margin-bottom:17px">
       <div style="font-size:19px;font-weight:800;margin-bottom:3px">${esc(course.name)}</div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${course.lessons.length} уроків</div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${course.lessons.length} уроків · ${isAdm ? '' : lessons.length + ' доступно'}</div>
     </div>
     <div class="sec-title">📖 Уроки</div>
     ${
-      course.lessons.length
-        ? course.lessons
+      lessons.length
+        ? lessons
             .map(
               (l) => `
       <div class="task-card tc-fillin" style="cursor:pointer" data-action="open-lesson" data-fid="${course.id}" data-lid="${l.id}">
@@ -223,13 +254,19 @@ export function showCourseView(course) {
       </div>`
             )
             .join('')
-        : '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">Уроків немає</div></div>'
+        : '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">Немає доступних уроків</div></div>'
     }
     ${!isAdm ? '' : `<div class="add-task-btn" data-action="open-cl" data-fid="${course.id}">＋ Додати урок</div>`}
   </div>`;
 }
 
 export async function openLesson(courseId, lessonId) {
+  if (!isAdmin()) {
+    const visible = getFilteredLessons(courseId);
+    if (!visible.find(l => l.id === Number(lessonId))) {
+      return showHome();
+    }
+  }
   state.setCFid(courseId);
   state.setCLid(lessonId);
   state.setCTab('lesson');
@@ -247,11 +284,17 @@ export async function openLesson(courseId, lessonId) {
     <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`
   );
-  renderLessonLayout(lesson, courseId, isAdm);
+  await renderLessonLayout(lesson, courseId, isAdm);
 }
 
-export function renderLessonLayout(lesson, courseId, isAdm) {
+export async function renderLessonLayout(lesson, courseId, isAdm) {
   const tasks = lesson.tasks || [];
+  let lessonDone = false;
+  if (!isAdm) {
+    const p = await db.getByIndex('progress', 'user_id', currentUser.id);
+    const found = p.find(pr => pr.lesson_id === lesson.id);
+    lessonDone = found?.status === 'done';
+  }
 
   document.getElementById('mc').innerHTML = `
     <div class="lesson-layout">
@@ -276,7 +319,7 @@ export function renderLessonLayout(lesson, courseId, isAdm) {
           <div class="sections-score" id="sectionsScoreDisplay">0/0 correct</div>
           <button class="btn bgr" data-action="check-all" data-fid="${courseId}" data-lid="${lesson.id}">✓ Check All</button>
           <button class="btn bg" data-action="reset-all" data-fid="${courseId}" data-lid="${lesson.id}">↺ Reset</button>
-          ${isAdm ? '' : `<button class="btn bp" data-action="mark-done" data-fid="${courseId}" data-lid="${lesson.id}">✓ Lesson done</button>`}
+          ${isAdm ? '' : lessonDone ? '<div style="font-size:11px;color:var(--green);font-family:var(--mono);padding:6px 0">✓ Урок пройдено</div>' : `<button class="btn bp" data-action="mark-done" data-fid="${courseId}" data-lid="${lesson.id}">✓ Lesson done</button>`}
         </div>
       </div>
     </div>`;
@@ -401,10 +444,17 @@ export async function showHomeworkPanel() {
   setTopbar('Домашнє завдання', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
     <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
-  document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
-    ${buildHomeworkPanelHTML()}
-  </div>`;
-  await renderHomeworkList();
+  if (isAdmin()) {
+    document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:960px;width:100%">
+      ${buildTeacherHomeworkPanelHTML()}
+    </div>`;
+    await renderTeacherHomeworkList();
+  } else {
+    document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
+      ${buildStudentHomeworkPanelHTML()}
+    </div>`;
+    await renderStudentHomeworkList();
+  }
 }
 
 export async function showVocabPage() {

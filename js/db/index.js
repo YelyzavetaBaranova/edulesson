@@ -4,6 +4,7 @@ const SNAKE_TO_CAMEL = {
   user_id: 'userId', course_id: 'courseId', lesson_id: 'lessonId',
   task_id: 'taskId', order_index: 'orderIndex',
   created_at: 'createdAt', updated_at: 'updatedAt',
+  tasks_json: 'tasksJson',
 };
 
 const CAMEL_TO_SNAKE = {};
