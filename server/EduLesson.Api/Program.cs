@@ -18,10 +18,11 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Auto-migrate: if the Homework table lacks TasksJson, rebuild the schema
-    try { db.Database.ExecuteSqlRaw("SELECT TasksJson FROM Homework LIMIT 1"); }
-    catch { db.Database.EnsureDeleted(); db.Database.EnsureCreated(); }
-    if (!db.Database.CanConnect()) db.Database.EnsureCreated();
+    db.Database.EnsureCreated();
+    // Migrate old Homework schema: add new columns if missing (no data loss)
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN TasksJson TEXT NOT NULL DEFAULT '[]'"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN CourseId INTEGER NOT NULL DEFAULT 0"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Homework ADD COLUMN UpdatedAt TEXT NOT NULL DEFAULT '2024-01-01'"); } catch { }
     if (!db.Users.Any())
     {
         var pw = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("admin123"))).ToLower();
