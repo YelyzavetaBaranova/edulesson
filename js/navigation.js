@@ -164,7 +164,10 @@ export function renderSB() {
     if (isAdmin()) {
       el.innerHTML = '<div style="padding:16px 10px;font-size:11px;color:var(--text3);font-family:var(--mono);line-height:1.8">Ще немає курсів.<br>Натисни «＋ Курс» унизу</div>';
     } else {
-      el.innerHTML = '<div style="padding:16px 10px;font-size:11px;color:var(--text3);font-family:var(--mono);line-height:1.8">Немає доступних курсів</div>';
+      const allAvail = D.courses;
+      el.innerHTML = '<div style="padding:16px 10px;font-size:11px;color:var(--text3);font-family:var(--mono);line-height:1.8;text-align:center">Немає доступних курсів' +
+        (allAvail.length ? '<br><br><button class="btn bp bsm" data-action="show-home" style="margin-top:4px">Обрати курс</button>' : '') +
+        '</div>';
     }
     return;
   }
@@ -266,12 +269,10 @@ export async function showHome() {
       </div>
     </div>
     ${coursePicker}
-    <div class="sec-title">📂 Всі курси</div>
     ${
       courses.length
-        ? courses
-            .map(
-              (c) => `
+        ? `<div class="sec-title">📂 Всі курси</div>` +
+          courses.map(c => `
       <div class="task-card tc-choose" style="cursor:pointer" data-action="toggle-folder" data-fid="${c.id}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <div>
@@ -280,12 +281,28 @@ export async function showHome() {
           </div>
           <span style="font-size:18px;opacity:.4">›</span>
         </div>
-      </div>`
-            )
-            .join('')
-        : '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">Курсів ще немає</div></div>'
+      </div>`).join('')
+        : buildCourseSelectionHTML()
     }
   </div>`;
+}
+
+function buildCourseSelectionHTML() {
+  const all = D.courses;
+  if (!all.length) return '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">Курсів ще немає</div></div>';
+  return `<div class="sec-title">📚 Доступні курси</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${all.map(c => `
+      <div class="task-card tc-choose">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:2px">${esc(c.name)}</div>
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${c.lessons.length} уроків</div>
+          </div>
+          <button class="btn bp bsm" data-action="student-enroll-course" data-course-id="${c.id}">Обрати курс</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
 }
 
 function buildHomeActions() {
@@ -612,4 +629,12 @@ export async function showStudentSchedule() {
     <div class="sec-title" style="margin-bottom:16px">📅 Мій розклад</div>
     ${html || '<div style="color:var(--text3);font-size:13px;font-family:var(--mono);padding:20px 0">Немає запланованих занять</div>'}
   </div>`;
+}
+
+export function showToast(msg) {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 20px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:360px;transition:opacity .2s';
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(() => { d.style.opacity = '0'; d.style.transition = 'opacity .2s'; setTimeout(() => d.remove(), 200); }, 3000);
 }

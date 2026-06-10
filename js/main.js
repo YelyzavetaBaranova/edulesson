@@ -19,6 +19,7 @@ import {
   showProfile,
   setActiveCourse,
   showStudentSchedule,
+  showToast,
 } from './navigation.js';
 import {
   openCF,
@@ -368,6 +369,16 @@ async function handleAction(e) {
       break;
     case 'create-hw-from-lesson':
       showHomeworkWizard(parseInt(el.dataset.fid, 10), parseInt(el.dataset.lid, 10));
+      break;
+    case 'student-enroll-course':
+      (async () => {
+        const courseId = parseInt(el.dataset.courseId, 10);
+        const course = D.courses.find(c => c.id === courseId);
+        await db.add('enrollments', { user_id: currentUser.id, course_id: courseId, created_at: new Date().toISOString() });
+        window.__enrolledChecked = false;
+        showToast('Курс «' + (course ? course.name : '') + '» призначено!');
+        showHome();
+      })();
       break;
     case 'sch-delete':
       (async () => {
