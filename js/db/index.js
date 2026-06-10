@@ -109,12 +109,14 @@ export async function put(store, obj) {
   if (store === 'lessons') {
     const courseId = body.courseId;
     if (!courseId) throw new Error('course_id required for lessons');
+    if (body.id === undefined || body.id === null) throw new Error('Cannot PUT lesson: missing id');
     delete body.courseId;
     url = '/courses/' + courseId + '/lessons/' + body.id;
   } else if (store === 'progress') {
     // API upserts via POST
     return add(store, obj);
   } else {
+    if (body.id === undefined || body.id === null) throw new Error('Cannot PUT ' + store + ': missing id');
     url = storeUrl(store) + '/' + body.id;
   }
   const data = await api(url, { method: 'PUT', body: JSON.stringify(body) });

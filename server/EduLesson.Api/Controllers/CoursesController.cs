@@ -15,6 +15,14 @@ public class CoursesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<Course>>> GetAll() => await _db.Courses.ToListAsync();
 
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Course>> Get(int id)
+    {
+        var c = await _db.Courses.FindAsync(id);
+        if (c == null) return NotFound();
+        return c;
+    }
+
     [HttpPost]
     public async Task<ActionResult<Course>> Create(CreateCourseRequest req)
     {

@@ -79,12 +79,14 @@ export function getLessonRef(courseId, lessonId) {
 
 export async function save() {
   for (const c of D.courses) {
+    if (c.id === undefined || c.id === null) continue;
     const existing = await db.get('courses', c.id);
-    if (!existing) continue;
+    if (!existing || existing.id === undefined) continue;
     await db.put('courses', { ...existing, name: c.name, description: c.description || '' });
     for (const l of c.lessons) {
+      if (l.id === undefined || l.id === null) continue;
       const existingLesson = await db.get('lessons', l.id);
-      if (!existingLesson) continue;
+      if (!existingLesson || existingLesson.id === undefined) continue;
       existingLesson.name = l.name;
       existingLesson.tasks = l.tasks;
       await db.put('lessons', existingLesson);
