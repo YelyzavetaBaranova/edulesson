@@ -51,7 +51,7 @@ async function ensureEnrolled() {
   await refreshVisibleLessons();
 }
 
-function setActiveCourse(courseId) {
+export function setActiveCourse(courseId) {
   if (!window.__enrolledCourseIds || !window.__enrolledCourseIds.includes(Number(courseId))) return;
   window.__enrolledCourseId = Number(courseId);
   localStorage.setItem('activeCourseId', courseId);
