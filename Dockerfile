@@ -8,6 +8,10 @@ WORKDIR /app
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://0.0.0.0:3000
 COPY --from=build /app/publish .
-COPY index.html js/ css/ assets/ scripts/ ./
+COPY index.html ./
+COPY js ./js
+COPY css ./css
+COPY assets ./assets
+COPY scripts ./scripts
 EXPOSE 3000
 ENTRYPOINT ["dotnet", "EduLesson.Api.dll"]
