@@ -21,18 +21,26 @@
       </div>
     </div>
     <div class="sb-tabs" id="sbTabs"></div>
+    <div class="sb-hw-section" id="sbHWSection" style="display:none"></div>
     <div class="sb-actions" id="sbActions"></div>
     <div class="sb-folders" id="folderList"></div>
+    <div class="sb-bottom" id="sbBottom" style="display:none"></div>
   </div>
 </aside>
 
 <main id="main">
   <div class="topbar" id="topbarEl">
-    <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0">
-      <div class="tb-title" id="tbTitle">Головна</div>
-      <div class="breadcrumb" id="tbBread"></div>
+    <div class="topbar-row">
+      <div class="tb-left">
+        <div class="tb-title" id="tbTitle">Головна</div>
+        <div class="tb-bread" id="tbBread"></div>
+      </div>
+      <div class="tb-right">
+        <div id="tbUserArea"></div>
+        <div id="tbActions" style="display:flex;gap:6px;flex-shrink:0"></div>
+      </div>
     </div>
-    <div id="tbActions" style="display:flex;gap:6px;flex-shrink:0"></div>
+    <div id="tbExtra"></div>
   </div>
   <div id="mc" style="flex:1;display:flex;flex-direction:column"></div>
 </main>

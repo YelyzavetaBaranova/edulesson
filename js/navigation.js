@@ -74,12 +74,36 @@ function renderAdminTabs() {
     <button class="sb-tab ${adminTab === 'materials' ? 'active' : ''}" data-action="admin-tab" data-tab="materials">📦 Матеріали</button>`;
 }
 
+function renderSBHWSection() {
+  const el = document.getElementById('sbHWSection');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="sb-hw-header">
+      <span class="hw-ico">📁</span>
+      <span>Домашні роботи</span>
+    </div>
+    <div class="sb-hw-actions">
+      <button class="sb-hw-btn" data-action="show-homework">
+        <span class="hw-btn-ico">📝</span>
+        <span class="hw-btn-lbl">Перевірка</span>
+      </button>
+      <button class="sb-hw-btn" data-action="show-homework">
+        <span class="hw-btn-ico">📊</span>
+        <span class="hw-btn-lbl">Статус</span>
+      </button>
+      <button class="sb-hw-btn" data-action="show-homework">
+        <span class="hw-btn-ico">📋</span>
+        <span class="hw-btn-lbl">Архів</span>
+      </button>
+    </div>`;
+}
+
 function renderSBActions() {
   const el = document.getElementById('sbActions');
   if (!el) return;
   if (isAdmin()) {
-    el.innerHTML = `<button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
-      <button class="btn bg bico" data-action="show-vocab-page" title="Словник">📖</button>`;
+    el.innerHTML = '';
   } else {
     el.innerHTML = `<button class="btn bg bsm" data-action="show-homework" style="flex:1;font-size:13px">📝 Домашнє завдання</button>
       <button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
@@ -87,12 +111,29 @@ function renderSBActions() {
   }
 }
 
+function renderSBBottom() {
+  const el = document.getElementById('sbBottom');
+  if (!el) return;
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <button class="sb-bottom-btn" data-action="show-home" title="Головна">🏠</button>
+    <button class="sb-bottom-btn" data-action="show-vocab-page" title="Словник">📖</button>`;
+}
+
 export function renderSB() {
+  const sbHW = document.getElementById('sbHWSection');
+  const sbBot = document.getElementById('sbBottom');
   if (isAdmin()) {
     document.getElementById('sbTabs').style.display = 'flex';
     renderAdminTabs();
+    renderSBHWSection();
+    renderSBBottom();
+    if (sbHW) sbHW.style.display = 'block';
+    if (sbBot) sbBot.style.display = 'flex';
   } else {
     document.getElementById('sbTabs').style.display = 'none';
+    if (sbHW) sbHW.style.display = 'none';
+    if (sbBot) sbBot.style.display = 'none';
   }
   renderSBActions();
   const el = document.getElementById('folderList');
@@ -109,34 +150,14 @@ export function renderSB() {
     }
     return;
   }
-  el.innerHTML = courses
-    .map((c) => {
-      const isOpen = state.cFid === c.id;
-      const lessons = isAdmin() ? c.lessons : getFilteredLessons(c.id);
-      return `<div class="folder-item ${isOpen ? 'open' : ''}">
-      <div class="folder-hdr ${isOpen ? 'active' : ''}" data-action="toggle-folder" data-fid="${c.id}">
-        <span style="font-size:13px">📁</span>
-        <span class="f-name">${esc(c.name)}</span>
-        <span class="f-cnt">${c.lessons.length}</span>
-        <span class="f-chev">▶</span>
-      </div>
-      <div class="f-lessons">
-        ${lessons
-          .map(
-            (l) =>
-              `<div class="l-item ${state.cLid === l.id ? 'active' : ''}" data-action="open-lesson" data-fid="${c.id}" data-lid="${l.id}">
-          <span class="l-dot"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</span></div>`
-          )
-          .join('')}
-        ${!isAdmin() ? '' : `<div class="l-item" style="color:var(--accent);opacity:.75" data-action="open-cl" data-fid="${c.id}">
-          <span style="font-size:13px">＋</span><span>Новий урок</span></div>`}
-      </div>
-    </div>`;
-    })
-    .join('');
-  if (isAdmin() && courses.length) {
-    el.innerHTML += `<div class="l-item" style="color:var(--accent);margin-top:6px" data-action="show-new-course">
-      <span style="font-size:13px">＋</span><span>Новий курс</span></div>`;
+  if (courses.length) {
+    el.innerHTML = `<div class="folder-grid">
+      ${courses.map(c => `<div class="folder-grid-item" data-action="toggle-folder" data-fid="${c.id}">
+        <div class="fi-ico">📁</div>
+        <div class="fi-name">${esc(c.name)}</div>
+      </div>`).join('')}
+    </div>
+    ${isAdmin() ? `<button class="add-course-btn" data-action="show-new-course">＋ Новий курс</button>` : ''}`;
   }
 }
 
@@ -155,8 +176,21 @@ export function toggleFolder(courseId) {
 
 export function setTopbar(title, bread, actions) {
   document.getElementById('tbTitle').textContent = title;
-  document.getElementById('tbBread').innerHTML = bread;
-  document.getElementById('tbActions').innerHTML = actions;
+  document.getElementById('tbBread').innerHTML = bread || '';
+  document.getElementById('tbActions').innerHTML = actions || '';
+  const userArea = document.getElementById('tbUserArea');
+  if (userArea) {
+    userArea.innerHTML = `
+      <div class="tb-user">
+        <div class="tb-user-info">
+          <div class="tb-user-name">Вітаю, ${esc(currentUser?.name || '')}!</div>
+          <div class="tb-user-role">${currentUser?.role === 'admin' ? 'Admin' : 'Student'}</div>
+        </div>
+        <div class="tb-user-avatar">${(currentUser?.name || 'A')[0].toUpperCase()}</div>
+      </div>`;
+  }
+  const extra = document.getElementById('tbExtra');
+  if (extra) extra.innerHTML = '';
 }
 
 export async function showHome() {
@@ -214,10 +248,7 @@ export async function showHome() {
 }
 
 function buildHomeActions() {
-  let html = '';
-  html += `<span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
-    <button class="btn bd bsm" data-action="logout">🚪</button>`;
-  return html;
+  return `<button class="btn bd bsm" data-action="logout">🚪</button>`;
 }
 
 export function showCourseView(course) {
@@ -229,7 +260,6 @@ export function showCourseView(course) {
     'Курс',
     `${isAdm ? `<button class="btn bp bsm" data-action="open-cl" data-fid="${course.id}">＋ Урок</button>
     <button class="btn bd bsm" data-action="del-folder" data-fid="${course.id}">🗑</button>` : ''}
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`
   );
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
@@ -281,7 +311,6 @@ export async function openLesson(courseId, lessonId) {
     lesson.name,
     `<span>${esc(course.name)}</span> › <span>${esc(lesson.name)}</span>`,
     `${isAdm ? `<button class="btn bd bsm" data-action="del-lesson" data-fid="${courseId}" data-lid="${lessonId}">🗑 Урок</button>` : ''}
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`
   );
   await renderLessonLayout(lesson, courseId, isAdm);
@@ -383,15 +412,7 @@ export function setLTab(tab, fid, lid) {
 }
 
 export function showAdminPanel() {
-  if (!isAdmin()) return showHome();
-  adminTab = 'students';
-  state.setCFid(null);
-  state.setCLid(null);
-  renderSB();
-  setTopbar('👥 Учні', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
-    <button class="btn bd bsm" data-action="logout">🚪</button>`);
-  import('./admin.js').then(m => m.renderAdminPanel());
+  return showStudentsTab();
 }
 
 export function showStudentsTab() {
@@ -400,9 +421,39 @@ export function showStudentsTab() {
   state.setCFid(null);
   state.setCLid(null);
   renderSB();
-  setTopbar('👥 Учні', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
+  setTopbar('', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
+  document.getElementById('tbTitle').innerHTML = '<span class="tb-ico">💜</span>Students';
+  const mc = document.getElementById('mc');
+  mc.innerHTML = `
+    <div style="padding:16px 24px;flex:1;display:flex;flex-direction:column;overflow-y:auto">
+      <div class="warning-banner">
+        <span class="wb-icon">⚠️</span>
+        <span class="wb-text">There is homework pending review</span>
+        <button class="wb-btn" data-action="show-homework">→ Learn more</button>
+      </div>
+      <div class="search-row">
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input type="text" placeholder="Search" id="studentSearch">
+        </div>
+        <button class="filter-btn">🔍 Filter</button>
+      </div>
+      <div class="tag-row">
+        <button class="tag-btn active">All</button>
+        <button class="tag-btn">Live classes</button>
+      </div>
+      <div class="view-tools">
+        <div class="view-tools-left">
+          <button class="view-btn" title="Grid view">▦</button>
+          <button class="view-btn active" title="List view">≡</button>
+          <button class="sort-btn">↕ Sort by creation date</button>
+        </div>
+      </div>
+      <hr class="dashed-divider">
+      <div class="student-counter" id="studentCounter">Number of students 0</div>
+      <div id="adminStudentList"></div>
+    </div>`;
   import('./admin.js').then(m => m.renderAdminPanel());
 }
 
@@ -413,7 +464,6 @@ export function showScheduleTab() {
   state.setCLid(null);
   renderSB();
   setTopbar('📅 Розклад', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
     <div style="font-size:13px;color:var(--text3);font-family:var(--mono);padding:20px 0">Розклад — скоро</div>
@@ -427,7 +477,6 @@ export function showMaterialsTab() {
   state.setCLid(null);
   renderSB();
   setTopbar('📦 Матеріали', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
     <div style="margin-bottom:24px">
@@ -442,7 +491,6 @@ export async function showHomeworkPanel() {
   state.setCLid(null);
   renderSB();
   setTopbar('Домашнє завдання', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   if (isAdmin()) {
     document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:960px;width:100%">
@@ -462,7 +510,6 @@ export async function showVocabPage() {
   state.setCLid(null);
   renderSB();
   setTopbar('Словник', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   const { buildVocabPageHTML, renderVocabPage } = await import('./vocab.js');
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
@@ -478,7 +525,6 @@ export async function showProfile(userId) {
   state.setCLid(null);
   renderSB();
   setTopbar('Профіль учня', '', `<button class="btn bg bsm" data-action="show-students">👥</button>
-    <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${currentUser?.name || ''}</span>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:880px;width:100%">
     ${await buildProfileHTML(userId)}

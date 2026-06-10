@@ -6,7 +6,7 @@ export async function buildProfileHTML(userId) {
   const uid = Number(userId);
   const users = await db.getAll('users');
   const user = users.find(u => u.id === uid);
-  if (!user) return '<div>Користувача не знайдено</div>';
+  if (!user) return '<div style="padding:24px;color:var(--text3);font-family:var(--mono)">Користувача не знайдено</div>';
 
   const enrollments = await db.getAll('enrollments');
   const enrollment = enrollments.find(e => e.user_id === uid);
@@ -28,51 +28,50 @@ export async function buildProfileHTML(userId) {
   const pct = totalLessons > 0 ? Math.round((doneLessons / totalLessons) * 100) : 0;
 
   return `
-    <div style="max-width:700px">
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding:20px;background:var(--surface2);border:1px solid var(--border);border-radius:14px">
-        <div style="width:52px;height:52px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#000;flex-shrink:0">${esc(user.name[0] || '?').toUpperCase()}</div>
-        <div style="flex:1">
-          <div style="font-size:18px;font-weight:800;margin-bottom:2px">${esc(user.name)}</div>
-          <div style="font-size:12px;color:var(--text3);font-family:var(--mono)">${esc(user.email)}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">Студент · ${course ? esc(course.name) : 'Курс не призначено'}</div>
+    <div class="profile-page">
+      <div class="profile-header-card">
+        <div class="profile-avatar">${esc(user.name[0] || '?').toUpperCase()}</div>
+        <div class="profile-info">
+          <div class="profile-name">${esc(user.name)}</div>
+          <div class="profile-email">${esc(user.email)}</div>
+          <div class="profile-role">Student · ${course ? esc(course.name) : 'Course not assigned'}</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:26px;font-weight:800;color:${pct === 100 ? 'var(--green)' : 'var(--amber)'}">${pct}%</div>
-          <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">прогрес</div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-bottom:20px">
-        <div style="flex:1;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:center">
-          <div style="font-size:20px;font-weight:800">${doneLessons}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">пройдено уроків</div>
-        </div>
-        <div style="flex:1;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:center">
-          <div style="font-size:20px;font-weight:800">${totalLessons - doneLessons}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">залишилось</div>
-        </div>
-        <div style="flex:1;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:center">
-          <div style="font-size:20px;font-weight:800">${userHomework.filter(h => h.status === 'done').length}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">домашніх завдань</div>
+        <div class="profile-progress">
+          <div class="profile-pct">${pct}%</div>
+          <div class="profile-pct-label">прогрес</div>
         </div>
       </div>
 
-      ${lastLesson ? `
-      <div style="margin-bottom:20px">
-        <div class="sec-title" style="margin-bottom:10px">⏺ Останній пройдений урок</div>
-        <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
-          <span style="font-size:13px;flex:1">${esc(lastLessonName)}</span>
-          <button class="btn bgr bsm" data-action="go-to-student-lesson" data-lesson-id="${lastLesson.lesson_id}" data-fid="${enrollment?.course_id || ''}" style="padding:6px 14px">➡ До класу</button>
+      <div class="stat-cards">
+        <div class="stat-card-item">
+          <div class="stat-card-num">${doneLessons}</div>
+          <div class="stat-card-label">пройдено уроків</div>
         </div>
-      </div>` : ''}
+        <div class="stat-card-item">
+          <div class="stat-card-num">${totalLessons - doneLessons}</div>
+          <div class="stat-card-label">залишилось</div>
+        </div>
+        <div class="stat-card-item">
+          <div class="stat-card-num">${userHomework.filter(h => h.status === 'done').length}</div>
+          <div class="stat-card-label">домашніх завдань</div>
+        </div>
+      </div>
 
-      <div class="sec-title" style="margin-bottom:10px">📝 Домашні завдання</div>
-      ${buildHomeworkTable(userHomework, allLessons)}
+      <div class="sec-title-sm" style="margin-bottom:10px">⏺ Останній пройдений урок</div>
+      <div class="last-lesson-card">
+        <span class="last-lesson-name">${lastLesson ? esc(lastLessonName) : '—'}</span>
+        ${lastLesson && enrollment ? `<button class="last-lesson-btn" data-action="go-to-student-lesson" data-lesson-id="${lastLesson.lesson_id}" data-course-id="${enrollment.course_id}">→ До класу</button>` : ''}
+      </div>
+
+      <div class="homework-section">
+        <div class="sec-title-sm" style="margin-bottom:8px">📝 Домашні завдання</div>
+        ${buildHomeworkTable(userHomework, allLessons)}
+      </div>
     </div>`;
 }
 
 function buildHomeworkTable(homework, allLessons) {
-  if (!homework.length) return '<div style="color:var(--text3);font-size:12px;font-family:var(--mono);padding:8px 0">Немає домашніх завдань</div>';
+  if (!homework.length) return '<div class="homework-empty">Немає виконаних завдань</div>';
   return `<div style="display:flex;flex-direction:column;gap:4px">
     ${homework.map(h => {
       const lesson = allLessons.find(l => l.id === h.lesson_id);
