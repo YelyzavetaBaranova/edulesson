@@ -1,11 +1,3 @@
 {
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "buildCommand": "dotnet publish server/EduLesson.Api -c Release -o /app/publish"
-  },
-  "deploy": {
-    "startCommand": "dotnet /app/publish/EduLesson.Api.dll",
-    "healthcheckPath": "/api/courses",
-    "restartPolicyType": "ON_FAILURE"
-  }
+  "$schema": "https://railway.app/railway.schema.json"
 }
