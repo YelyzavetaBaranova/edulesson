@@ -1,6 +1,7 @@
 import { esc } from './utils.js';
 import { D, getCourseRef, getLessonRef, save, saveVocab, loadVocab } from './store.js';
 import * as state from './state.js';
+import { NAMES } from './constants.js';
 import * as db from './db/index.js';
 import { renderTasksHTML, renderSectionsListHTML } from './tasks/render.js';
 import { initDrag, initFillInBoxDrag } from './tasks/interactions.js';
@@ -122,10 +123,22 @@ function renderSBActions() {
   if (isAdmin()) {
     el.innerHTML = '';
   } else {
-    el.innerHTML = `<button class="btn bg bsm" data-action="show-homework" style="flex:1;font-size:13px">📝 Домашнє завдання</button>
-      <button class="btn bg bico" data-action="show-student-schedule" title="Розклад">📅</button>
-      <button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
-      <button class="btn bg bico" data-action="show-vocab-page" title="Словник">📖</button>`;
+    const cids = window.__enrolledCourseIds || [];
+    const activeCid = window.__enrolledCourseId;
+    const courseOpts = cids.map(cid => {
+      const c = getCourseRef(cid);
+      if (!c) return '';
+      return `<option value="${c.id}" ${c.id === activeCid ? 'selected' : ''}>${esc(c.name)}</option>`;
+    }).join('');
+    el.innerHTML = `
+      ${cids.length > 1 ? `<select class="sb-course-select" data-action="switch-course-from-select" style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:var(--display);outline:none;cursor:pointer">
+        ${courseOpts}
+      </select>` : ''}
+      <div style="display:flex;gap:6px;width:100%">
+        <button class="btn bg bsm" data-action="show-homework" style="flex:1;font-size:13px">📝 ДЗ</button>
+        <button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
+        <button class="btn bg bico" data-action="show-vocab-page" title="Словник">📖</button>
+      </div>`;
   }
 }
 
@@ -248,8 +261,9 @@ export async function showHome() {
   const tc = courses.length;
   const tl = courses.reduce((s, c) => s + c.lessons.length, 0);
   const tt = courses.reduce((s, c) => s + c.lessons.reduce((a, l) => a + (l.tasks || []).length, 0), 0);
-  const coursePicker = cids.length > 1 ? `
-    <div class="course-picker" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  const coursePicker = cids.length ? `
+    <div class="course-picker" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:var(--text3);font-family:var(--mono);font-weight:600">Курс:</span>
       ${cids.map(cid => {
         const c = getCourseRef(cid);
         if (!c) return '';
@@ -277,15 +291,16 @@ export async function showHome() {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <div>
             <div style="font-size:14px;font-weight:700;margin-bottom:2px">${esc(c.name)}</div>
-            <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${c.lessons.length} уроків</div>
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${c.lessons.length} уроків · ${c.lessons.reduce((a, l) => a + (l.tasks || []).length, 0)} завдань</div>
           </div>
           <span style="font-size:18px;opacity:.4">›</span>
         </div>
       </div>`).join('')
         : buildCourseSelectionHTML()
     }
+    ${!isAdm ? `<div id="studentHomeHomework"></div>` : ''}
   </div>`;
-}
+  if (!isAdm) await renderStudentHomeHomework();
 
 function buildCourseSelectionHTML() {
   const all = D.courses;
@@ -605,11 +620,13 @@ export async function showStudentSchedule() {
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   const userId = currentUser?.id;
   if (!userId) return;
+  const activeCid = window.__enrolledCourseId;
   const schedules = await db.getByIndex('schedule', 'user_id', userId);
   const allLessons = await db.getAll('lessons');
   const allCourses = await db.getAll('courses');
   const now = new Date().toISOString().slice(0, 10);
-  const grouped = schedules.filter(s => s.date >= now).sort((a, b) => a.date.localeCompare(b.date));
+  let grouped = schedules.filter(s => s.date >= now).sort((a, b) => a.date.localeCompare(b.date));
+  if (activeCid) grouped = grouped.filter(s => s.course_id === activeCid);
   const html = grouped.map(s => {
     const course = allCourses.find(c => c.id === s.course_id);
     let lessonNames = [];
@@ -627,8 +644,40 @@ export async function showStudentSchedule() {
   }).join('');
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:640px;width:100%">
     <div class="sec-title" style="margin-bottom:16px">📅 Мій розклад</div>
+    ${activeCid ? `<div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">${esc(getCourseRef(activeCid)?.name || '')}</div>` : ''}
     ${html || '<div style="color:var(--text3);font-size:13px;font-family:var(--mono);padding:20px 0">Немає запланованих занять</div>'}
   </div>`;
+}
+
+export async function renderStudentHomeHomework() {
+  const el = document.getElementById('studentHomeHomework');
+  if (!el) return;
+  const activeCid = window.__enrolledCourseId;
+  if (!activeCid) { el.innerHTML = ''; return; }
+  const allHomework = await db.getAll('homework');
+  const userHw = allHomework.filter(h => h.user_id === currentUser?.id && h.course_id === activeCid && h.status !== 'done');
+  if (!userHw.length) return;
+  const allLessons = await db.getAll('lessons');
+  el.innerHTML = `
+    <div class="sec-title" style="margin-top:16px">📝 Активні домашні завдання</div>
+    ${userHw.map(h => {
+      const lesson = allLessons.find(l => l.id === h.lesson_id);
+      const tasks = h.tasks || [];
+      const typeBadges = [...new Set(tasks.map(t => t.type))].slice(0, 3).map(t => NAMES[t] || t);
+      return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid ${h.status === 'returned' ? 'var(--amber)' : 'var(--accent)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${h.status === 'returned' ? 'var(--amber)' : 'var(--accent)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${tasks.length ? '8px' : '0'}">
+          <div>
+            <div style="font-size:13px;font-weight:600">${esc(lesson?.name || '—')}</div>
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${tasks.length} завдань · ${esc(typeBadges.join(', '))}</div>
+          </div>
+          ${h.status === 'returned' ? '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--amber);color:#000;font-family:var(--mono)">🔙 Повернено</span>' : ''}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn bb bsm" data-action="show-homework" style="font-size:11px;padding:4px 10px">📝 Відкрити ДЗ</button>
+          <button class="btn bgr bsm" data-action="hw-mark-done" data-hw-id="${h.id}" style="font-size:11px;padding:4px 10px">✓ Виконано</button>
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 export function showToast(msg) {

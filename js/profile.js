@@ -152,4 +152,11 @@ function buildHomeworkTable(homework, allLessons) {
 }
 
 export async function renderProfile(userId) {
+  const select = document.querySelector('.profile-course-select');
+  if (select) {
+    select.addEventListener('change', () => {
+      const saveBtn = document.querySelector('[data-action="profile-save-course"]');
+      if (saveBtn) saveBtn.style.display = 'inline-flex';
+    });
+  }
 }

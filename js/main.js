@@ -294,9 +294,27 @@ async function handleAction(e) {
       showHomeworkPanel();
       break;
     case 'switch-course':
-      setActiveCourse(parseInt(el.dataset.cid, 10));
-      showHome();
+      await setActiveCourse(parseInt(el.dataset.cid, 10));
+      await showHome();
       break;
+    case 'switch-course-from-select': {
+      e.stopPropagation();
+      const selCid = parseInt(el.value, 10);
+      if (selCid) {
+        setActiveCourse(selCid);
+        if (document.getElementById('homeworkList')) {
+          await renderStudentHomeworkList();
+          const homeHwEl = document.getElementById('studentHomeHomework');
+          if (homeHwEl) {
+            const { renderStudentHomeHomework } = await import('./navigation.js');
+            await renderStudentHomeHomework();
+          }
+        } else {
+          await showHome();
+        }
+      }
+      break;
+    }
     case 'profile-save-course':
       (async () => {
         const userId = parseInt(el.dataset.userId, 10);
@@ -335,14 +353,63 @@ async function handleAction(e) {
       await openLesson(fid || el.dataset.courseId, el.dataset.lessonId);
       break;
     case 'hw-mark-done':
+      if (!isAdmin()) {
+        const hwCard = el.closest('.hw-card');
+        if (hwCard) {
+          const interactiveTasks = hwCard.querySelectorAll('.task-card[data-task-input]');
+          let allCorrect = true;
+          interactiveTasks.forEach(card => {
+            const tid = card.id.replace('tc-', '');
+            const typeBtn = card.querySelector('[data-action="check-one"]');
+            if (typeBtn) {
+              const type = typeBtn.dataset.type;
+              const correct = checkOne(tid, type);
+              if (!correct) allCorrect = false;
+            }
+          });
+          if (interactiveTasks.length > 0 && !allCorrect) {
+            showToast('❌ Спочатку виправте всі завдання');
+            break;
+          }
+        }
+      }
       await markHomeworkDone(parseInt(el.dataset.hwId, 10));
       if (isAdmin()) await renderTeacherHomeworkList();
-      else await renderStudentHomeworkList();
+      else {
+        await renderStudentHomeworkList();
+        const homeHwEl = document.getElementById('studentHomeHomework');
+        if (homeHwEl) {
+          const { renderStudentHomeHomework } = await import('./navigation.js');
+          await renderStudentHomeHomework();
+        }
+      }
+      break;
+    case 'hw-check-all':
+      (async () => {
+        const hwCard = el.closest('.hw-card') || document;
+        hwCard.querySelectorAll('.task-card[data-task-input]').forEach(card => {
+          const tid = card.id.replace('tc-', '');
+          const btn = card.querySelector('[data-action="check-one"]');
+          if (btn) checkOne(tid, btn.dataset.type);
+        });
+      })();
+      break;
+    case 'hw-reset-all':
+      (async () => {
+        const hwCard = el.closest('.hw-card') || document;
+        hwCard.querySelectorAll('.task-card[data-task-input]').forEach(card => {
+          const tid = card.id.replace('tc-', '');
+          const btn = card.querySelector('[data-action="reset-task"]');
+          if (btn) resetTask(tid, btn.dataset.type);
+        });
+      })();
       break;
     case 'hw-add-task':
+      if (!isAdmin()) break;
       addTaskToHomework(parseInt(el.dataset.hwId));
       break;
     case 'hw-add-task-typed':
+      if (!isAdmin()) break;
       (async () => {
         const inp = document.querySelector(`.hw-task-input[data-hw-id="${el.dataset.hwId}"]`);
         if (!inp || !inp.value.trim()) return;
@@ -352,6 +419,7 @@ async function handleAction(e) {
       })();
       break;
     case 'hw-return':
+      if (!isAdmin()) break;
       (async () => {
         await returnHomework(parseInt(el.dataset.hwId));
         await renderTeacherHomeworkList();
@@ -446,6 +514,20 @@ function addTaskToHomework(hwId) {
   });
 }
 
+async function handleCourseSelect(e) {
+  const sel = e.target.closest('[data-action="switch-course-from-select"]');
+  if (!sel) return;
+  const cid = parseInt(sel.value, 10);
+  if (!cid) return;
+  setActiveCourse(cid);
+  if (document.getElementById('homeworkList')) {
+    const { renderStudentHomeworkList } = await import('./homework.js');
+    await renderStudentHomeworkList();
+  } else {
+    await showHome();
+  }
+}
+
 async function boot() {
   await seedAdmin();
   await init(); // load D from IndexedDB
@@ -456,6 +538,7 @@ async function boot() {
   document.body.addEventListener('click', handleChooseOpt);
   document.body.addEventListener('click', handleAdmin);
   document.body.addEventListener('change', handleModalFiles);
+  document.body.addEventListener('change', handleCourseSelect);
   document.body.addEventListener('keydown', handleVocabEnter);
   document.addEventListener('paste', handleModalPaste);
   document.body.addEventListener('focusin', (e) => {
