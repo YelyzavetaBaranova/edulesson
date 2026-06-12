@@ -4,6 +4,10 @@ export let cTab = 'lesson';
 export let cSidePanel = 'tasks';
 export let sbOpen = true;
 
+export let currentView = null;
+export let refreshInterval = null;
+export let profileUserId = null;
+
 export let tType = 'choose';
 export let pendingImages = [];
 export let pendingCaptions = [];
@@ -14,6 +18,15 @@ export function setCFid(v) {
 }
 export function setCLid(v) {
   cLid = v;
+}
+export function setCurrentView(v) {
+  currentView = v;
+}
+export function setRefreshInterval(v) {
+  refreshInterval = v;
+}
+export function setProfileUserId(v) {
+  profileUserId = v;
 }
 export function setCTab(v) {
   cTab = v;

@@ -51,6 +51,8 @@ async function loadFromDB() {
   }
 }
 
+export { loadFromDB };
+
 async function seedIfEmpty() {
   if (D.courses.length > 0) return;
   for (const name of DEFAULT_FOLDERS) {

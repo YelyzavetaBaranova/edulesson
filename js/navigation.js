@@ -1,5 +1,5 @@
 import { esc } from './utils.js';
-import { D, getCourseRef, getLessonRef, save, saveVocab, loadVocab } from './store.js';
+import { D, getCourseRef, getLessonRef, save, saveVocab, loadVocab, loadFromDB } from './store.js';
 import * as state from './state.js';
 import { NAMES } from './constants.js';
 import * as db from './db/index.js';
@@ -11,6 +11,31 @@ import { buildTranslatePanelHTML } from './translator.js';
 import { buildTeacherHomeworkPanelHTML, buildStudentHomeworkPanelHTML, renderTeacherHomeworkList, renderStudentHomeworkList, createHomework } from './homework.js';
 import { currentUser, isAdmin } from './auth.js';
 import { updateProgress, getUserCourseIds, startLessonTimer, stopLessonTimer } from './progress.js';
+
+/* ─── Auto-refresh for student pages ─── */
+
+function stopStudentRefresh() {
+  if (state.refreshInterval) {
+    clearInterval(state.refreshInterval);
+    state.setRefreshInterval(null);
+  }
+}
+
+function startStudentRefresh() {
+  stopStudentRefresh();
+  if (isAdmin()) return;
+  state.setRefreshInterval(setInterval(async () => {
+    if (isAdmin() || state.cLid) { stopStudentRefresh(); return; }
+    await loadFromDB();
+    await ensureEnrolled();
+    switch (state.currentView) {
+      case 'home': await showHome(); break;
+      case 'schedule': await showStudentSchedule(); break;
+      case 'profile': await showStudentProfile(); break;
+      case 'homework': await showHomeworkPanel(); break;
+    }
+  }, 60000));
+}
 
 let adminTab = 'materials';
 let studentVisibleLessonIds = null;
@@ -135,8 +160,12 @@ function renderSBActions() {
         ${courseOpts}
       </select>` : ''}
       <div style="display:flex;gap:6px;width:100%">
+        <button class="btn bg bsm" data-action="show-home" style="flex:1;font-size:13px">🏠</button>
+        <button class="btn bg bico" data-action="show-student-profile" title="Кабінет">👤</button>
+        <button class="btn bg bico" data-action="show-student-schedule" title="Розклад">📅</button>
+      </div>
+      <div style="display:flex;gap:6px;width:100%;margin-top:4px">
         <button class="btn bg bsm" data-action="show-homework" style="flex:1;font-size:13px">📝 ДЗ</button>
-        <button class="btn bg bico" data-action="show-home" title="Головна">🏠</button>
         <button class="btn bg bico" data-action="show-vocab-page" title="Словник">📖</button>
       </div>`;
   }
@@ -229,6 +258,8 @@ export function setTopbar(title, bread, actions) {
 
 export async function showHome() {
   stopLessonTimer();
+  stopStudentRefresh();
+  state.setCurrentView('home');
   state.setCFid(null);
   state.setCLid(null);
   await ensureEnrolled();
@@ -301,7 +332,8 @@ export async function showHome() {
     ${!isAdm ? `<div id="studentHomeHomework"></div>` : ''}
   </div>`;
   if (!isAdm) await renderStudentHomeHomework();
-
+  if (!isAdm) startStudentRefresh();
+}
 function buildCourseSelectionHTML() {
   const all = D.courses;
   if (!all.length) return '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">Курсів ще немає</div></div>';
@@ -321,7 +353,10 @@ function buildCourseSelectionHTML() {
 }
 
 function buildHomeActions() {
-  return `<button class="btn bd bsm" data-action="logout">🚪</button>`;
+  if (isAdmin()) return `<button class="btn bd bsm" data-action="logout">🚪</button>`;
+  return `<button class="btn bg bsm" data-action="show-student-profile">👤 Кабінет</button>
+    <button class="btn bg bsm" data-action="show-student-schedule">📅 Розклад</button>
+    <button class="btn bd bsm" data-action="logout">🚪</button>`;
 }
 
 export function showCourseView(course) {
@@ -364,6 +399,7 @@ export function showCourseView(course) {
 }
 
 export async function openLesson(courseId, lessonId) {
+  stopStudentRefresh();
   if (!isAdmin()) {
     const visible = getFilteredLessons(courseId);
     if (!visible.find(l => l.id === Number(lessonId))) {
@@ -563,10 +599,13 @@ export function showMaterialsTab() {
 }
 
 export async function showHomeworkPanel() {
+  stopStudentRefresh();
+  state.setCurrentView('homework');
   state.setCFid(null);
   state.setCLid(null);
   renderSB();
   setTopbar('Домашнє завдання', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
+    <button class="btn bg bsm" data-action="show-student-profile">👤 Кабінет</button>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   if (isAdmin()) {
     document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:960px;width:100%">
@@ -578,6 +617,7 @@ export async function showHomeworkPanel() {
       ${buildStudentHomeworkPanelHTML()}
     </div>`;
     await renderStudentHomeworkList();
+    startStudentRefresh();
   }
 }
 
@@ -595,6 +635,7 @@ export async function showVocabPage() {
 }
 
 export async function showProfile(userId, courseId) {
+  stopStudentRefresh();
   if (!isAdmin()) return showHome();
   if (!courseId) window.__profileCourseId = null;
   else window.__profileCourseId = courseId;
@@ -612,11 +653,14 @@ export async function showProfile(userId, courseId) {
 
 export async function showStudentSchedule() {
   if (isAdmin()) return;
+  stopStudentRefresh();
   stopLessonTimer();
+  state.setCurrentView('schedule');
   state.setCFid(null);
   state.setCLid(null);
   renderSB();
   setTopbar('📅 Розклад', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
+    <button class="btn bg bsm" data-action="show-student-profile">👤 Кабінет</button>
     <button class="btn bd bsm" data-action="logout">🚪</button>`);
   const userId = currentUser?.id;
   if (!userId) return;
@@ -647,6 +691,127 @@ export async function showStudentSchedule() {
     ${activeCid ? `<div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">${esc(getCourseRef(activeCid)?.name || '')}</div>` : ''}
     ${html || '<div style="color:var(--text3);font-size:13px;font-family:var(--mono);padding:20px 0">Немає запланованих занять</div>'}
   </div>`;
+  startStudentRefresh();
+}
+
+export async function showStudentProfile() {
+  if (isAdmin()) return;
+  stopStudentRefresh();
+  stopLessonTimer();
+  state.setCurrentView('profile');
+  state.setCFid(null);
+  state.setCLid(null);
+  renderSB();
+  setTopbar('👤 Мій кабінет', '', `<button class="btn bg bsm" data-action="show-home">🏠</button>
+    <button class="btn bg bsm" data-action="show-student-schedule">📅 Розклад</button>
+    <button class="btn bd bsm" data-action="logout">🚪</button>`);
+
+  const uid = currentUser?.id;
+  if (!uid) { document.getElementById('mc').innerHTML = ''; return; }
+  const allUsers = await db.getAll('users');
+  const user = allUsers.find(u => u.id === uid);
+  if (!user) { document.getElementById('mc').innerHTML = ''; return; }
+
+  const enrollments = await db.getAll('enrollments');
+  const userEnrollments = enrollments.filter(e => e.user_id === uid);
+  const activeCid = window.__enrolledCourseId;
+  const course = activeCid ? getCourseRef(activeCid) : null;
+
+  const allProgress = await db.getAll('progress');
+  const userProgress = allProgress.filter(p => p.user_id === uid);
+  const courseProgress = activeCid && course ? userProgress.filter(p => course.lessons.some(l => l.id === p.lesson_id)) : [];
+
+  const totalLessons = course ? course.lessons.length : 0;
+  const doneLessons = courseProgress.filter(p => p.status === 'done').length;
+  const pct = totalLessons > 0 ? Math.round((doneLessons / totalLessons) * 100) : 0;
+
+  const lastDone = courseProgress.filter(p => p.status === 'done').sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  const lastLesson = lastDone.length > 0 ? lastDone[0] : null;
+  const lastLessonName = lastLesson && course ? (course.lessons.find(l => l.id === lastLesson.lesson_id)?.name || '—') : '—';
+
+  const allHomework = await db.getAll('homework');
+  const userHomework = activeCid ? allHomework.filter(h => h.user_id === uid && h.course_id === activeCid) : [];
+
+  const allSchedules = await db.getByIndex('schedule', 'user_id', uid);
+  const upcomingSchedules = allSchedules.filter(s => s.date >= new Date().toISOString().slice(0, 10)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  const allLessons = await db.getAll('lessons');
+  const scheduleHtml = upcomingSchedules.length ? `
+    <div class="sec-title-sm" style="margin-bottom:6px;margin-top:14px">📅 Найближчі заняття</div>
+    ${upcomingSchedules.map(s => {
+      let lessonNames = [];
+      try { lessonNames = JSON.parse(s.lesson_ids_json || '[]').map(id => { const l = allLessons.find(x => x.id === id); return l ? l.name : ''; }).filter(Boolean); } catch {}
+      return `<div style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:4px">
+        <span style="font-weight:600">${s.date}</span> · ${lessonNames.join(', ') || '—'}
+      </div>`;
+    }).join('')}
+    <button class="btn bg bsm" data-action="show-student-schedule" style="margin-top:6px;font-size:11px">📅 Весь розклад</button>` : '';
+
+  const hwHtml = userHomework.length ? `
+    <div class="sec-title-sm" style="margin-bottom:6px;margin-top:14px">📝 Домашні завдання</div>
+    ${userHomework.map(h => {
+      const lesson = allLessons.find(l => l.id === h.lesson_id);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:4px">
+        <span style="font-size:10px;color:${h.status === 'done' ? 'var(--green)' : h.status === 'returned' ? 'var(--amber)' : 'var(--text3)'}">${h.status === 'done' ? '✓' : h.status === 'returned' ? '↺' : '◷'}</span>
+        <span style="flex:1">${esc(lesson?.name || '—')}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${h.status}</span>
+      </div>`;
+    }).join('')}` : '';
+
+  const archivedCourses = [];
+  for (const enrolled of userEnrollments) {
+    const c = getCourseRef(enrolled.course_id);
+    if (!c || !c.lessons.length) continue;
+    const courseLessonsDone = c.lessons.every(l => userProgress.some(p => p.lesson_id === l.id && p.status === 'done'));
+    if (courseLessonsDone) archivedCourses.push(c);
+  }
+  const archivedHtml = archivedCourses.length ? `
+    <div class="sec-title-sm" style="margin-bottom:6px;margin-top:14px">📦 Архів</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${archivedCourses.map(c => `<span style="padding:3px 10px;border-radius:20px;background:var(--green);color:#000;font-size:11px;font-weight:600">${esc(c.name)} ✓</span>`).join('')}</div>` : '';
+
+  document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:640px;width:100%">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800">${(user.name || '?')[0].toUpperCase()}</div>
+      <div>
+        <div style="font-size:20px;font-weight:800">${esc(user.name)}</div>
+        <div style="font-size:12px;color:var(--text3);font-family:var(--mono)">${esc(user.email)}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:4px">${course ? esc(course.name) : 'Курс не обрано'}</div>
+      </div>
+      <div style="margin-left:auto;text-align:center">
+        <div style="font-size:24px;font-weight:800">${pct}%</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">прогрес</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="text-align:center;padding:10px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:18px;font-weight:700">${doneLessons}</div>
+        <div style="font-size:10px;color:var(--text3)">пройдено</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:18px;font-weight:700">${totalLessons - doneLessons}</div>
+        <div style="font-size:10px;color:var(--text3)">залишилось</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:18px;font-weight:700">${userHomework.filter(h => h.status === 'done').length}</div>
+        <div style="font-size:10px;color:var(--text3)">ДЗ виконано</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:14px;font-weight:700">${esc(getCourseRef(activeCid)?.name || '')}</div>
+        <div style="font-size:9px;color:var(--text3)">активний курс</div>
+      </div>
+    </div>
+
+    <div class="last-lesson-card" style="padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">⏺ Останній пройдений урок</div>
+      <div style="font-size:14px;font-weight:600">${lastLesson ? esc(lastLessonName) : '—'}</div>
+      ${lastLesson && activeCid ? `<button class="btn bp bsm" style="margin-top:8px;font-size:11px" data-action="go-to-student-lesson" data-course-id="${activeCid}" data-lesson-id="${lastLesson.lesson_id}">→ До уроку</button>` : ''}
+    </div>
+
+    ${scheduleHtml}
+    ${hwHtml}
+    ${archivedHtml}
+  </div>`;
+  startStudentRefresh();
 }
 
 export async function renderStudentHomeHomework() {

@@ -19,6 +19,7 @@ import {
   showProfile,
   setActiveCourse,
   showStudentSchedule,
+  showStudentProfile,
   showToast,
 } from './navigation.js';
 import {
@@ -351,6 +352,9 @@ async function handleAction(e) {
       break;
     case 'show-student-schedule':
       showStudentSchedule();
+      break;
+    case 'show-student-profile':
+      showStudentProfile();
       break;
     case 'show-vocab-page':
       showVocabPage();
