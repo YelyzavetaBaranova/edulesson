@@ -46,9 +46,10 @@ export function renderTask(t, i, fid, lid) {
       <div class="hint-body" id="hb-${t.id}">${htxt}${himg}</div>`;
   }
 
+  const adm = isAdmin();
   return `
   <div class="task-card tc-${t.type}" id="tc-${t.id}" data-task-input="${isInteractive ? t.input.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') : ''}">
-    <div class="task-drag-handle" draggable="true" data-tid="${t.id}" title="Перетягни, щоб змінити порядок">⠿</div>
+    ${adm ? `<div class="task-drag-handle" draggable="true" data-tid="${t.id}" title="Перетягни, щоб змінити порядок">⠿</div>` : ''}
     <div class="task-number">${num}</div>
     ${t.instruction ? `<div class="t-instr">${esc(t.instruction)}</div>` : ''}
     <div class="task-body" id="tb-${t.id}">${body}</div>
@@ -65,6 +66,7 @@ export function renderTask(t, i, fid, lid) {
         </div>`
           : '<div></div>'
       }
+      ${adm ? `
       <div class="task-menu-wrap">
         <button class="task-menu-btn" data-action="toggle-task-menu" data-tid="${t.id}">•••</button>
         <div class="task-menu-pop" id="tmenu-${t.id}">
@@ -73,7 +75,7 @@ export function renderTask(t, i, fid, lid) {
           <div class="tm-item" data-action="edit-task" data-fid="${fid}" data-lid="${lid}" data-tid="${t.id}">✏️ Редагувати</div>
           <div class="tm-item danger" data-action="del-task" data-fid="${fid}" data-lid="${lid}" data-tid="${t.id}">🗑 Видалити</div>
         </div>
-      </div>
+      </div>` : ''}
     </div>
   </div>`;
 }

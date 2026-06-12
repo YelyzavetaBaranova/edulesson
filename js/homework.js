@@ -375,7 +375,7 @@ export async function showHomeworkWizard(preselectedCourseId, preselectedLessonI
       const taskId = cb.dataset.taskId;
       const lesson = getLessonRef(courseId, lessonId);
       const task = lesson?.tasks?.find(t => t.id === taskId);
-      return task || null;
+      return task ? { ...task, id: uid() } : null;
     }).filter(Boolean);
 
     const newTaskText = newTaskInput.value.trim();
@@ -383,13 +383,26 @@ export async function showHomeworkWizard(preselectedCourseId, preselectedLessonI
       selectedTasks.push({ id: uid(), title: newTaskText, instruction: newTaskText, type: 'text' });
     }
 
-    const hwId = await createHomework(userId, lessonId, courseId);
-    if (selectedTasks.length) {
-      const hw = await db.get('homework', hwId);
-      if (hw) {
-        hw.tasks = [...(hw.tasks || []), ...selectedTasks];
-        await db.put('homework', hw);
+    const all = await db.getAll('homework');
+    const existing = all.find(h => h.user_id === userId && h.lesson_id === lessonId);
+    if (existing) {
+      const merged = [...(existing.tasks || [])];
+      for (const t of selectedTasks) {
+        if (!merged.find(m => m.instruction === t.instruction && m.type === t.type)) {
+          merged.push(t);
+        }
       }
+      existing.tasks = merged;
+      await db.put('homework', existing);
+    } else {
+      await db.add('homework', {
+        user_id: userId,
+        lesson_id: lessonId,
+        course_id: courseId,
+        tasks_json: JSON.stringify(selectedTasks),
+        status: 'todo',
+        created_at: new Date().toISOString(),
+      });
     }
     mo.classList.remove('show');
     alert('Домашнє завдання створено');

@@ -2,6 +2,7 @@ import { esc, uid, compressImage } from './utils.js';
 import { HINTS } from './constants.js';
 import * as state from './state.js';
 import { D, getCourseRef, getLessonRef, addCourse, addLesson, save, saveVocab, loadVocab } from './store.js';
+import { isAdmin } from './auth.js';
 
 export function openMO(html) {
   document.getElementById('MB').innerHTML = html;
@@ -358,6 +359,7 @@ function flashEl(id) {
 }
 
 export async function saveNewTask(courseId, lessonId) {
+  if (!isAdmin()) return;
   const g = gatherTask();
   if (['choose', 'fillin', 'fillinbox', 'order', 'match'].includes(g.type) && !g.input) { flashEl('mInput'); return; }
   if (g.type === 'text' && !g.input) { flashEl('mInput'); return; }
@@ -376,6 +378,7 @@ export async function saveNewTask(courseId, lessonId) {
 }
 
 export async function saveEditTask(courseId, lessonId, taskId) {
+  if (!isAdmin()) return;
   const g = gatherTask();
   const lesson = getLessonRef(courseId, lessonId);
   const task = (lesson?.tasks || []).find((x) => x.id === taskId);
@@ -388,6 +391,7 @@ export async function saveEditTask(courseId, lessonId, taskId) {
 }
 
 export async function createFolder() {
+  if (!isAdmin()) return;
   const name = document.getElementById('mFname').value.trim();
   if (!name) return;
   const id = await addCourse(name);
@@ -399,6 +403,7 @@ export async function createFolder() {
 }
 
 export async function createLesson(courseId) {
+  if (!isAdmin()) return;
   const name = document.getElementById('mLname').value.trim();
   if (!name) return;
   await addLesson(courseId, name);

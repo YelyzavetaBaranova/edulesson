@@ -1,6 +1,6 @@
 import * as db from './db/index.js';
 import { getCourseRef } from './store.js';
-import { currentUser } from './auth.js';
+import { currentUser, isAdmin } from './auth.js';
 import { esc } from './utils.js';
 
 export async function renderAdminPanel() {
@@ -92,6 +92,7 @@ function buildProgressView(users, enrollments, progress, courses) {
 }
 
 export async function handleAdminActions(e) {
+  if (!isAdmin()) return;
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const action = el.dataset.action;

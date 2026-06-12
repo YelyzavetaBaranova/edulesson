@@ -178,6 +178,7 @@ async function handleAction(e) {
       break;
     case 'del-lesson':
       if (!isAdmin()) break;
+      delLesson(fid, lid);
       break;
     case 'show-folder':
       showCourseView(getCourseRef(fid));
@@ -214,10 +215,12 @@ async function handleAction(e) {
       toggleTaskMenu(tid, e);
       break;
     case 'edit-task':
+      if (!isAdmin()) break;
       closeTaskMenus();
       editTask(fid, lid, tid);
       break;
     case 'del-task':
+      if (!isAdmin()) break;
       closeTaskMenus();
       delTask(fid, lid, tid);
       break;
@@ -235,18 +238,23 @@ async function handleAction(e) {
       closeMO();
       break;
     case 'create-folder':
+      if (!isAdmin()) break;
       createFolder();
       break;
     case 'show-new-course':
+      if (!isAdmin()) break;
       openCF();
       break;
     case 'create-lesson':
+      if (!isAdmin()) break;
       createLesson(fid);
       break;
     case 'save-new-task':
+      if (!isAdmin()) break;
       saveNewTask(fid, lid);
       break;
     case 'save-edit-task':
+      if (!isAdmin()) break;
       saveEditTask(fid, lid, tid);
       break;
     case 'sel-type':
@@ -271,10 +279,12 @@ async function handleAction(e) {
       delVocab(parseInt(idx, 10));
       break;
     case 'move-task-up':
+      if (!isAdmin()) break;
       closeTaskMenus();
       moveTaskUp(fid, lid, tid);
       break;
     case 'move-task-down':
+      if (!isAdmin()) break;
       closeTaskMenus();
       moveTaskDown(fid, lid, tid);
       break;
@@ -319,6 +329,7 @@ async function handleAction(e) {
       break;
     }
     case 'profile-save-course':
+      if (!isAdmin()) break;
       (async () => {
         const userId = parseInt(el.dataset.userId, 10);
         const sel = document.querySelector('.profile-course-select');
@@ -443,6 +454,7 @@ async function handleAction(e) {
       showHomeworkWizard(parseInt(el.dataset.fid, 10), parseInt(el.dataset.lid, 10));
       break;
     case 'student-enroll-course':
+      if (!isAdmin()) break;
       (async () => {
         const courseId = parseInt(el.dataset.courseId, 10);
         const course = D.courses.find(c => c.id === courseId);
@@ -453,6 +465,7 @@ async function handleAction(e) {
       })();
       break;
     case 'sch-delete':
+      if (!isAdmin()) break;
       (async () => {
         await db.del('schedule', parseInt(el.dataset.schId, 10));
         const { initScheduleEditor } = await import('./schedule.js');
