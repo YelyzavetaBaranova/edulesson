@@ -242,6 +242,7 @@ export async function returnHomework(hwId) {
 /* ─── Homework creation wizard ─── */
 
 export async function showHomeworkWizard(preselectedCourseId, preselectedLessonId) {
+  if (!isAdmin()) return;
   const users = await db.getAll('users');
   const students = users.filter(u => u.role !== 'admin');
   const courses = D.courses;

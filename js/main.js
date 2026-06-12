@@ -169,13 +169,15 @@ async function handleAction(e) {
       openLesson(fid, lid);
       break;
     case 'open-cl':
+      if (!isAdmin()) break;
       openCL(fid);
       break;
     case 'del-folder':
+      if (!isAdmin()) break;
       delFolder(fid);
       break;
     case 'del-lesson':
-      delLesson(fid, lid);
+      if (!isAdmin()) break;
       break;
     case 'show-folder':
       showCourseView(getCourseRef(fid));
@@ -187,6 +189,7 @@ async function handleAction(e) {
       setLTab(tab, fid, lid);
       break;
     case 'open-ct':
+      if (!isAdmin()) break;
       openCT(fid, lid);
       break;
     case 'check-one':
@@ -436,6 +439,7 @@ async function handleAction(e) {
       showHome();
       break;
     case 'create-hw-from-lesson':
+      if (!isAdmin()) break;
       showHomeworkWizard(parseInt(el.dataset.fid, 10), parseInt(el.dataset.lid, 10));
       break;
     case 'student-enroll-course':

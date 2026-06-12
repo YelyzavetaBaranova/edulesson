@@ -1,5 +1,6 @@
 import { esc } from '../utils.js';
 import { NAMES, INTERACTIVE_TYPES } from '../constants.js';
+import { isAdmin } from '../auth.js';
 import {
   buildChoose,
   buildFillIn,
@@ -97,8 +98,9 @@ export function renderTasksHTML(lesson, fid) {
   const tasks = lesson.tasks || [];
   let html = '';
   if (!tasks.length) {
-    html =
-      '<div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">Завдань ще немає.<br>Натисни «＋ Додати завдання»</div></div>';
+    html = isAdmin()
+      ? '<div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">Завдань ще немає.<br>Натисни «＋ Додати завдання»</div></div>'
+      : '<div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">Завдань ще немає</div></div>';
   } else {
     html += `<div id="tasksList" data-fid="${fid}" data-lid="${lesson.id}">`;
     tasks.forEach((t, i) => {
@@ -106,6 +108,6 @@ export function renderTasksHTML(lesson, fid) {
     });
     html += '</div>';
   }
-  html += `<div class="add-task-btn" data-action="open-ct" data-fid="${fid}" data-lid="${lesson.id}">＋ Додати завдання</div>`;
+  html += isAdmin() ? `<div class="add-task-btn" data-action="open-ct" data-fid="${fid}" data-lid="${lesson.id}">＋ Додати завдання</div>` : '';
   return html;
 }
