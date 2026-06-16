@@ -1,4 +1,9 @@
 const BASE = '/api';
+let _sessionNonce = null;
+
+export function setSessionNonce(nonce) {
+  _sessionNonce = nonce;
+}
 
 const SNAKE_TO_CAMEL = {
   user_id: 'userId', course_id: 'courseId', lesson_id: 'lessonId',

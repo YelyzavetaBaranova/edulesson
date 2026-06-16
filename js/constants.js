@@ -10,6 +10,7 @@ export const BADGES = {
   game: 'badge-game',
   text: 'badge-text',
   match: 'badge-match',
+  audio: 'badge-audio',
 };
 
 export const NAMES = {
@@ -24,6 +25,7 @@ export const NAMES = {
   game: 'Game',
   text: 'Text block',
   match: 'Match',
+  audio: 'Audio',
 };
 
 export const HINTS = {
@@ -38,6 +40,7 @@ export const HINTS = {
   match:
     "<span class=\"hb-ex\">What's your name? | My name is Liza.\nHow old are you? | I am 8.</span><br>Кожна пара на новому рядку: ліво | право",
   text: 'Введи будь-який текст, інструкцію або пояснення для учнів.',
+  audio: 'Вставте посилання на аудіофайл (mp3, ogg) або YouTube-відео.',
 };
 
 export const DEFAULT_FOLDERS = [

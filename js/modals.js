@@ -67,6 +67,7 @@ export function buildTM(courseId, lessonId, ex) {
         ['photo', '🖼️', 'Photo', 'Фото'],
         ['gallery', '🎞️', 'Gallery', 'Галерея'],
         ['video', '🎬', 'Video', 'Відео'],
+        ['audio', '🎵', 'Audio', 'Аудіо'],
         ['wordwall', '🎮', 'Wordwall', 'Wordwall'],
         ['game', '🕹️', 'Game', 'Baamboozle'],
       ]
@@ -367,6 +368,7 @@ export async function saveNewTask(courseId, lessonId) {
   if (g.type === 'video' && !g.videoUrl) { flashEl('mVideoUrl'); return; }
   if (g.type === 'wordwall' && !g.videoUrl) { flashEl('mVideoUrl'); return; }
   if (g.type === 'game' && !g.videoUrl) { flashEl('mVideoUrl'); return; }
+  if (g.type === 'audio' && !g.videoUrl) { flashEl('mVideoUrl'); return; }
   const lesson = getLessonRef(courseId, lessonId);
   if (!lesson) return;
   if (!lesson.tasks) lesson.tasks = [];

@@ -20,6 +20,7 @@ import {
   setActiveCourse,
   showStudentSchedule,
   showStudentProfile,
+  showHomeworkDetailView,
   showToast,
 } from './navigation.js';
 import {
@@ -44,7 +45,7 @@ import {
 import { moveTaskDown, moveTaskUp } from './tasks/reorder.js';
 import { delTask, delLesson, delFolder } from './delete.js';
 import { doTranslate, addToVocabFromTr } from './translator.js';
-import { addVocabManual, delVocab } from './vocab.js';
+import { addVocabManual, addVocabBatch, delVocab } from './vocab.js';
 import { checkOne, checkAll, showAnswer, resetTask, resetAll } from './tasks/grading.js';
 import {
   togglePop,
@@ -276,6 +277,9 @@ async function handleAction(e) {
     case 'add-vocab-manual':
       addVocabManual();
       break;
+    case 'add-vocab-batch':
+      addVocabBatch();
+      break;
     case 'del-vocab':
       delVocab(parseInt(idx, 10));
       break;
@@ -370,9 +374,12 @@ async function handleAction(e) {
     case 'go-to-student-lesson':
       await openLesson(fid || el.dataset.courseId, el.dataset.lessonId);
       break;
+    case 'open-homework':
+      await showHomeworkDetailView(parseInt(el.dataset.hwId, 10));
+      break;
     case 'hw-mark-done':
       if (!isAdmin()) {
-        const hwCard = el.closest('.hw-card');
+        const hwCard = el.closest('.hw-card') || document.getElementById('homeworkDetailTasks');
         if (hwCard) {
           const interactiveTasks = hwCard.querySelectorAll('.task-card[data-task-input]');
           let allCorrect = true;
@@ -400,11 +407,12 @@ async function handleAction(e) {
           const { renderStudentHomeHomework } = await import('./navigation.js');
           await renderStudentHomeHomework();
         }
+        showToast('✅ Домашнє завдання виконано!');
       }
       break;
     case 'hw-check-all':
       (async () => {
-        const hwCard = el.closest('.hw-card') || document;
+        const hwCard = el.closest('.hw-card') || document.getElementById('homeworkDetailTasks') || document;
         hwCard.querySelectorAll('.task-card[data-task-input]').forEach(card => {
           const tid = card.id.replace('tc-', '');
           const btn = card.querySelector('[data-action="check-one"]');
@@ -414,7 +422,7 @@ async function handleAction(e) {
       break;
     case 'hw-reset-all':
       (async () => {
-        const hwCard = el.closest('.hw-card') || document;
+        const hwCard = el.closest('.hw-card') || document.getElementById('homeworkDetailTasks') || document;
         hwCard.querySelectorAll('.task-card[data-task-input]').forEach(card => {
           const tid = card.id.replace('tc-', '');
           const btn = card.querySelector('[data-action="reset-task"]');

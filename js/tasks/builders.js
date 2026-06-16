@@ -174,12 +174,30 @@ export function buildVideo(t) {
   return `<div class="video-wrap"><iframe src="${embed}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></div>`;
 }
 
+export function buildAudio(t) {
+  if (!t.videoUrl) return '<div style="color:var(--text3);font-size:13px">— немає аудіо —</div>';
+  const url = t.videoUrl.trim();
+  if (url.match(/\.(mp3|ogg|wav|m4a|aac)(\?|$)/i)) {
+    return `<audio controls style="width:100%"><source src="${esc(url)}"></audio>`;
+  }
+  const embed = toEmbedUrl(url);
+  if (!embed) {
+    return `<div style="color:var(--text3);font-size:13px">Не вдалося визначити аудіо.<br><a href="${esc(url)}" target="_blank" style="color:var(--accent)">${esc(url)}</a></div>`;
+  }
+  return `<div class="video-wrap"><iframe src="${embed}" allowfullscreen></iframe></div>`;
+}
+
 export function buildWordwall(t) {
   if (!t.videoUrl) return '<div style="color:var(--text3);font-size:13px">— вставте посилання Wordwall —</div>';
   let url = t.videoUrl.trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   if (url.includes('wordwall.net/resource')) {
     url = url.replace('wordwall.net/resource', 'wordwall.net/embed/').replace(/\/+$/, '');
     if (!url.includes('/embed/')) url = url.replace('wordwall.net/', 'wordwall.net/embed/');
+  } else if (url.includes('wordwall.net/play')) {
+    const parts = url.split('/');
+    const id = parts.pop() || parts.pop();
+    url = `https://wordwall.net/embed/${id}`;
   }
   return `<div class="wordwall-wrap"><iframe src="${esc(url)}" allowfullscreen frameborder="0" allow="autoplay; fullscreen"></iframe></div>`;
 }
@@ -198,29 +216,34 @@ export function buildTextBlock(t) {
 }
 
 export function buildMatch(t) {
-  if (!t.input) return '<div style="color:var(--text3);font-size:13px">— немає пар —</div>';
-  const pairs = t.input
+  if (!t.input && (!t.images || !t.images.length)) return '<div style="color:var(--text3);font-size:13px">— немає пар —</div>';
+  const pairs = (t.input || '')
     .split('\n')
     .map((l) => l.split('|'))
     .filter((p) => p.length === 2)
     .map((p) => ({ l: p[0].trim(), r: p[1].trim() }));
-  if (!pairs.length) {
+  const imgPairs = (t.images || []).map((src, i) => ({ l: src, r: (t.captions && t.captions[i]) || '' }));
+  const allPairs = [...pairs, ...imgPairs];
+  if (!allPairs.length) {
     return '<div style="color:var(--text3);font-size:13px">— формат: ліво | право (кожна пара на новому рядку) —</div>';
   }
-  const shuffledR = [...pairs.map((p) => p.r)].sort(() => Math.random() - 0.5);
-  const leftHTML = pairs
-    .map(
-      (p, i) =>
-        `<div class="match-item" id="ml-${t.id}-${i}" data-idx="${i}" data-matched="" data-action="match-click" data-tid="${t.id}" data-side="left" data-midx="${i}">${esc(p.l)}</div>`
-    )
+  const shuffledR = [...allPairs.map((p) => p.r)].sort(() => Math.random() - 0.5);
+  const leftHTML = allPairs
+    .map((p, i) => {
+      const isImg = p.l.startsWith('http') && (p.l.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i));
+      const content = isImg ? `<img src="${esc(p.l)}" style="max-width:100px;max-height:60px;border-radius:6px;display:block">` : esc(p.l);
+      return `<div class="match-item" id="ml-${t.id}-${i}" data-idx="${i}" data-matched="" data-action="match-click" data-tid="${t.id}" data-side="left" data-midx="${i}">${content}</div>`;
+    })
     .join('');
   const rightHTML = shuffledR
     .map((r, i) => {
-      const origIdx = pairs.findIndex((p) => p.r === r);
-      return `<div class="match-item" id="mr-${t.id}-${i}" data-idx="${i}" data-orig="${origIdx}" data-matched="" data-action="match-click" data-tid="${t.id}" data-side="right" data-midx="${i}">${esc(r)}</div>`;
+      const origIdx = allPairs.findIndex((p) => p.r === r);
+      const isImg = r.startsWith('http') && (r.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i));
+      const content = isImg ? `<img src="${esc(r)}" style="max-width:100px;max-height:60px;border-radius:6px;display:block">` : esc(r);
+      return `<div class="match-item" id="mr-${t.id}-${i}" data-idx="${i}" data-orig="${origIdx}" data-matched="" data-action="match-click" data-tid="${t.id}" data-side="right" data-midx="${i}">${content}</div>`;
     })
     .join('');
-  return `<div class="match-container" id="match-${t.id}" data-pairs="${esc(JSON.stringify(pairs))}">
+  return `<div class="match-container" id="match-${t.id}" data-pairs="${esc(JSON.stringify(allPairs))}">
     <div class="match-col"><div class="match-col-label">❓ Питання</div>${leftHTML}</div>
     <div class="match-col"><div class="match-col-label">💬 Відповіді</div>${rightHTML}</div>
   </div>`;

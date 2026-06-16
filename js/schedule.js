@@ -18,9 +18,18 @@ export function buildScheduleHTML() {
             <option value="">— Оберіть учня —</option>
           </select>
         </div>
-        <div class="fg" style="min-width:160px">
-          <label style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;display:block">Дата</label>
+        <div class="fg" style="min-width:140px">
+          <label style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;display:block">Дата від</label>
           <input type="date" id="schDate" style="width:100%;padding:9px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--display);outline:none">
+        </div>
+        <div class="fg" style="min-width:140px">
+          <label style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;display:block">Дата до</label>
+          <input type="date" id="schDateTo" style="width:100%;padding:9px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--display);outline:none">
+        </div>
+        <div class="fg" style="min-width:100px;display:flex;align-items:end">
+          <label style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;display:block">
+            <input type="checkbox" id="schMultiDate"> Кілька дат
+          </label>
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -43,6 +52,8 @@ export async function initScheduleEditor() {
   const courseSel = document.getElementById('schCourse');
   const studentSel = document.getElementById('schStudent');
   const dateInput = document.getElementById('schDate');
+  const dateToInput = document.getElementById('schDateTo');
+  const multiCb = document.getElementById('schMultiDate');
   const lessonsDiv = document.getElementById('schLessons');
   const lessonList = document.getElementById('schLessonList');
   const existingDiv = document.getElementById('schExisting');
@@ -61,6 +72,21 @@ export async function initScheduleEditor() {
   });
 
   dateInput.valueAsDate = new Date();
+  if (dateToInput) dateToInput.valueAsDate = new Date();
+
+  function getDates() {
+    const start = dateInput.value;
+    const end = dateToInput.value || start;
+    if (!multiCb || !multiCb.checked || start === end) return [start];
+    const dates = [];
+    let d = new Date(start);
+    const endD = new Date(end);
+    while (d <= endD) {
+      dates.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }
 
   async function updateStudents() {
     const cid = Number(courseSel.value);
@@ -137,23 +163,30 @@ export async function initScheduleEditor() {
   courseSel.addEventListener('change', () => { updateStudents(); updateLessons(); updateExisting(); });
   studentSel.addEventListener('change', () => { updateLessons(); updateExisting(); });
   dateInput.addEventListener('change', () => { updateLessons(); updateExisting(); });
+  dateToInput.addEventListener('change', () => {
+    if (multiCb) multiCb.checked = dateToInput.value && dateToInput.value !== dateInput.value;
+  });
 
   saveBtn.addEventListener('click', async () => {
     const cid = Number(courseSel.value);
     const uid = Number(studentSel.value);
-    const date = dateInput.value;
-    if (!cid || !uid || !date) return;
+    if (!cid || !uid || !dateInput.value) return;
     const checked = [...document.querySelectorAll('.sch-lesson-cb:checked')].map(cb => Number(cb.value));
     const lessonIdsJson = JSON.stringify(checked);
-    const schedules = await db.getByIndex('schedule', 'user_id', uid);
-    const existing = schedules.find(s => s.course_id === cid && s.date === date);
-    if (existing) {
-      await db.put('schedule', { id: existing.id, user_id: uid, course_id: cid, date, lesson_ids_json: lessonIdsJson, notes: existing.notes || '' });
-    } else {
-      await db.add('schedule', { user_id: uid, course_id: cid, date, lesson_ids_json: lessonIdsJson, notes: '' });
+    const dates = getDates();
+    let saved = 0;
+    for (const date of dates) {
+      const schedules = await db.getByIndex('schedule', 'user_id', uid);
+      const existing = schedules.find(s => s.course_id === cid && s.date === date);
+      if (existing) {
+        await db.put('schedule', { id: existing.id, user_id: uid, course_id: cid, date, lesson_ids_json: lessonIdsJson, notes: existing.notes || '' });
+      } else {
+        await db.add('schedule', { user_id: uid, course_id: cid, date, lesson_ids_json: lessonIdsJson, notes: '' });
+      }
+      saved++;
     }
     updateExisting();
-    alert('Розклад збережено');
+    alert(`Розклад збережено для ${saved} дати(н)`);
   });
 
   clearBtn.addEventListener('click', () => {

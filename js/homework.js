@@ -12,6 +12,7 @@ import {
   buildPhoto,
   buildGallery,
   buildVideo,
+  buildAudio,
   buildWordwall,
   buildGame,
   buildTextBlock,
@@ -81,20 +82,8 @@ function buildHomeworkRow(h, user, course, lesson) {
 }
 
 export function buildStudentHomeworkPanelHTML() {
-  const cids = window.__enrolledCourseIds || [];
-  const activeCid = window.__enrolledCourseId;
-  const courseOpts = cids.map(cid => {
-    const c = D.courses.find(x => x.id === cid);
-    if (!c) return '';
-    return `<option value="${c.id}" ${c.id === activeCid ? 'selected' : ''}>${esc(c.name)}</option>`;
-  }).join('');
   return `<div class="vocab-panel" style="max-width:600px">
     <div class="vocab-title">📝 Домашнє завдання</div>
-    ${cids.length > 1 ? `<div style="margin-bottom:12px">
-      <select class="sb-course-select" data-action="switch-course-from-select" style="width:100%;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:var(--display);outline:none;cursor:pointer">
-        ${courseOpts}
-      </select>
-    </div>` : ''}
     <div id="homeworkList"></div>
   </div>`;
 }
@@ -122,7 +111,7 @@ export async function renderStudentHomeworkList() {
     const lesson = allLessons.find(l => l.id === h.lesson_id);
     const tasks = h.tasks || [];
     return `<div class="hw-card" style="margin-bottom:16px;background:var(--surface2);border:1px solid ${h.status === 'returned' ? 'var(--amber)' : 'var(--border)'};border-radius:12px;overflow:hidden">
-      <div style="padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" data-action="open-homework" data-hw-id="${h.id}">
         <div>
           <div style="font-size:14px;font-weight:600">${esc(lesson?.name || '—')}</div>
           <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${tasks.length} завдань · ${[...new Set(tasks.map(t => t.type))].slice(0, 3).map(t => NAMES[t] || t).join(', ')}</div>
@@ -149,13 +138,14 @@ const HW_BUILDERS = {
   photo: buildPhoto,
   gallery: buildGallery,
   video: buildVideo,
+  audio: buildAudio,
   wordwall: buildWordwall,
   game: buildGame,
   text: buildTextBlock,
   match: buildMatch,
 };
 
-function renderHomeworkTask(t, i, fid, lid) {
+export function renderHomeworkTask(t, i, fid, lid) {
   const build = HW_BUILDERS[t.type];
   const body = build ? build(t) : '';
   const isInteractive = INTERACTIVE_TYPES.includes(t.type);
