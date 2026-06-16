@@ -614,6 +614,7 @@ export async function showHomeworkDetailView(hwId) {
   const lesson = await db.get('lessons', hw.lesson_id);
   const course = getCourseRef(hw.course_id);
   const tasks = hw.tasks || [];
+  const { renderHomeworkTask } = await import('./homework.js');
 
   document.getElementById('mc').innerHTML = `<div style="padding:22px 26px;max-width:720px;width:100%">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px">
@@ -624,10 +625,7 @@ export async function showHomeworkDetailView(hwId) {
       ${hw.status === 'returned' ? '<span style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--amber);color:#000;font-family:var(--mono)">🔙 Повернено на доопрацювання</span>' : ''}
     </div>
     <div id="homeworkDetailTasks">
-      ${tasks.map((t, i) => {
-        const { renderHomeworkTask } = await import('./homework.js');
-        return renderHomeworkTask(t, i, hw.course_id, hw.lesson_id);
-      }).join('')}
+      ${tasks.map((t, i) => renderHomeworkTask(t, i, hw.course_id, hw.lesson_id)).join('')}
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <button class="btn bgr bsm" data-action="hw-check-all" data-hw-id="${hw.id}" data-course-id="${hw.course_id}" data-lesson-id="${hw.lesson_id}" style="font-size:13px">✓ Перевірити все</button>
