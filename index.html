@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduLesson</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<div id="sbToggle" class="open">‹</div>
+
+<aside id="sidebar">
+  <div class="sb-inner">
+    <div class="sb-logo">
+      <div class="logo-ico">📚</div>
+      <div>
+        <div style="font-size:17px;font-weight:800;letter-spacing:-.5px">EduLesson</div>
+        <div style="font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px">Конструктор уроків</div>
+      </div>
+    </div>
+    <div class="sb-actions">
+      <button class="btn bp" id="btnNewFolder" style="flex:1">＋ Папка</button>
+      <button class="btn bg bico" id="btnHome" title="Головна">🏠</button>
+    </div>
+    <div class="sb-folders" id="folderList"></div>
+  </div>
+</aside>
+
+<main id="main">
+  <div class="topbar" id="topbarEl">
+    <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0">
+      <div class="tb-title" id="tbTitle">Головна</div>
+      <div class="breadcrumb" id="tbBread"></div>
+    </div>
+    <div id="tbActions" style="display:flex;gap:6px;flex-shrink:0"></div>
+  </div>
+  <div id="mc" style="flex:1;display:flex;flex-direction:column"></div>
+</main>
+
+<div class="mo" id="MO"><div class="mb" id="MB"></div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

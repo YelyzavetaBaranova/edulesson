@@ -1,0 +1,11 @@
+# Database files
+edulesson.db
+edulesson.db-shm
+edulesson.db-wal
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Node
+node_modules/
